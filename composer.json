@@ -10,7 +10,8 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Diana\\": "src/Diana/"
+            "Diana\\": "src/Diana/",
+            "Diana\\Tests": "tests/"
         }
     },
     "scripts": {
@@ -25,15 +26,6 @@
         {
             "name": "Antonio Ianzano",
             "email": "ianzanoan@gmail.com"
-        }
-    ],
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../rendering",
-            "options": {
-                "symlink": true
-            }
         }
     ],
     "require": {
