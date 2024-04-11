@@ -9,8 +9,10 @@ use RuntimeException;
 
 class Pipeline
 {
-    protected mixed $initial = null;
-    protected mixed $mutable = null;
+    protected mixed $input = null;
+    protected mixed $output = null;
+
+    protected mixed $data = null;
 
     public function __construct(protected Container $container)
     {
@@ -19,23 +21,24 @@ class Pipeline
     public function expect(string $type): mixed
     {
         if (class_exists($type)) {
-            if (!is_a($this->mutable, $type))
-                throw new UnexpectedOutputTypeException("Unexpected pipeline output type. Expected [{$type}], got [" . $this->getType($this->mutable) . "]");
-        } elseif (gettype($this->mutable) != $type)
-            throw new UnexpectedOutputTypeException("Unexpected pipeline output type. Expected [{$type}], got [" . $this->getType($this->mutable) . "]");
+            if (!is_a($this->output, $type))
+                throw new UnexpectedOutputTypeException("Unexpected pipeline output type. Expected [{$type}], got [" . $this->getType($this->output) . "]");
+        } elseif (gettype($this->output) != $type)
+            throw new UnexpectedOutputTypeException("Unexpected pipeline output type. Expected [{$type}], got [" . $this->getType($this->output) . "]");
 
         return $this->finalize();
     }
 
     public function finalize(): mixed
     {
-        return $this->mutable;
+        return $this->output;
     }
 
-    public function send(mixed $initial): static
+    public function send(mixed $input, mixed $output = null, mixed $data = null): static
     {
-        $this->initial = $initial;
-        $this->mutable = $initial;
+        $this->input = $input;
+        $this->output = $output;
+        $this->data = $data;
 
         return $this;
     }
@@ -50,26 +53,26 @@ class Pipeline
     protected function run(Closure|string $current, Closure $next)
     {
         if ($current instanceof Closure)
-            return $current($this->initial, $next, $this->mutable);
+            return $current($this->input, $next, $this->output, $this->data);
         else if (is_string($current)) {
             $instance = $this->container->resolve($current);
-            return $instance->run($this->initial, $next, $this->mutable);
+            return $instance->run($this->input, $next, $this->output, $this->data);
         }
     }
 
-    public function pipe(Closure|array $pipes = [])
+    public function pipe(Closure|array|string $pipes = [])
     {
         if (is_array($pipes)) {
             $next = function () use (&$next, &$pipes) {
                 $current = array_shift($pipes);
 
                 if ($current)
-                    $this->mutable = $this->run($current, $next);
+                    $this->output = $this->run($current, $next);
             };
 
             $next();
         } else
-            $this->mutable = $this->run($pipes, function () {});
+            $this->output = $this->run($pipes, function () {});
 
         return $this;
     }

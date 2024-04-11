@@ -10,7 +10,5 @@ interface Kernel
 {
     public function run(Request $request): Response;
 
-    public function registerGateMiddleware(string|Closure $middleware): void;
-
-    public function registerHandlerMiddleware(string|Closure $middleware): void;
+    public function registerMiddleware(string|Closure $middleware): void;
 }

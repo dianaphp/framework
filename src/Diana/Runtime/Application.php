@@ -57,7 +57,7 @@ class Application extends Container implements Bootable, HasPath, Configurable
         $app->registerPackage(\AppPackage::class);
 
         // boots all packages
-        $app->performBoot();
+        $app->performBoot($app);
 
         return $app;
     }

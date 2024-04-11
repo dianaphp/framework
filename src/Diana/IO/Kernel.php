@@ -14,28 +14,18 @@ use Diana\Contracts\Middleware;
 
 class Kernel implements KernelContract
 {
-    protected array $gateMiddleware = [];
-
-    protected array $handlerMiddleware = [];
+    protected array $middleware = [];
 
     protected Pipeline $pipeline;
 
     protected $requestHandler;
 
-    public function registerGateMiddleware(string|Closure $middleware): void
+    public function registerMiddleware(string|Closure $middleware): void
     {
         if (is_string($middleware) && is_a($middleware, Middleware::class))
             throw new RuntimeException('Attempted to register a middleware [' . $middleware . '] that does not implement Middleware.');
 
-        $this->gateMiddleware[] = $middleware;
-    }
-
-    public function registerHandlerMiddleware(string|Closure $middleware): void
-    {
-        if (is_string($middleware) && is_a($middleware, Middleware::class))
-            throw new RuntimeException('Attempted to register a middleware [' . $middleware . '] that does not implement Middleware.');
-
-        $this->handlerMiddleware[] = $middleware;
+        $this->middleware[] = $middleware;
     }
 
     public function __construct(private Container $container)
@@ -47,8 +37,8 @@ class Kernel implements KernelContract
         $this->container->instance(Request::class, $request);
 
         return (new Pipeline($this->container))
-            ->send($request)
-            ->pipe([...$this->gateMiddleware, ...$this->handlerMiddleware])
+            ->send($request, new Response())
+            ->pipe($this->middleware)
             ->expect(Response::class);
     }
 }
