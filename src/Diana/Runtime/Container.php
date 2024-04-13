@@ -19,7 +19,6 @@ use Diana\Runtime\Exceptions\BindingResolutionException;
 use Diana\Runtime\Exceptions\CircularDependencyException;
 use Diana\Runtime\Exceptions\EntryNotFoundException;
 use Diana\Support\Helpers\Data;
-use Diana\Support\Helpers\Util;
 use Exception;
 use LogicException;
 use ReflectionClass;
@@ -924,7 +923,7 @@ class Container
             // If the class is null, it means the dependency is a string or some other
             // primitive type which we can not resolve since it is not a class and
             // we will just bomb out with an error since we have no-where to go.
-            $result = is_null(Util::getParameterClassName($dependency))
+            $result = is_null(Data::getParameterClassName($dependency))
                 ? $this->resolvePrimitive($dependency)
                 : $this->resolveClass($dependency);
 
@@ -1011,7 +1010,7 @@ class Container
         try {
             return $parameter->isVariadic()
                 ? $this->resolveVariadicClass($parameter)
-                : $this->resolve(Util::getParameterClassName($parameter));
+                : $this->resolve(Data::getParameterClassName($parameter));
         }
 
         // If we can not resolve the class instance, we will check to see if the value
@@ -1042,7 +1041,7 @@ class Container
      */
     protected function resolveVariadicClass(ReflectionParameter $parameter)
     {
-        $className = Util::getParameterClassName($parameter);
+        $className = Data::getParameterClassName($parameter);
 
         $abstract = $this->getAlias($className);
 

@@ -17,7 +17,6 @@ namespace Diana\Runtime;
 use Closure;
 use Diana\Runtime\Exceptions\BindingResolutionException;
 use Diana\Support\Helpers\Data;
-use Diana\Support\Helpers\Util;
 use InvalidArgumentException;
 use ReflectionFunction;
 use ReflectionMethod;
@@ -185,7 +184,7 @@ class BoundMethod
             $dependencies[] = $parameters[$paramName];
 
             unset($parameters[$paramName]);
-        } elseif (!is_null($className = Util::getParameterClassName($parameter))) {
+        } elseif (!is_null($className = Data::getParameterClassName($parameter))) {
             if (array_key_exists($className, $parameters)) {
                 $dependencies[] = $parameters[$className];
 
