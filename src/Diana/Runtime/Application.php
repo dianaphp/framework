@@ -52,7 +52,7 @@ class Application extends Container implements Bootable, HasPath, Configurable
         $app = new static($path, $classLoader);
 
         // initializes all packages
-        $app->registerPackage(\AppPackage::class);
+        $app->registerPackage(\App\AppPackage::class);
 
         // boots all packages
         $app->performBoot($app);
