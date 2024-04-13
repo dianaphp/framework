@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dc0c1a04509693ddeaa19d625cf8c05f",
+    "content-hash": "d38a5ec3579f4fc186c077f6e7347ff0",
     "packages": [
         {
             "name": "dianaphp/lib",
@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "/repo/dianaphp/lib",
-                "reference": "6ebc29d5e3c070fe1dc360be13678f78bab7b4c0"
+                "reference": "4f279287dcca743f2031255b0ece740e694db126"
             },
             "require": {
                 "php": ">=8.3"
@@ -752,12 +752,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "e91fafbc05ca189c67f8a4936ff825a9f719dcab"
+                "reference": "bc650b2c0cd65b1ebc539516ab56dbf80cae175f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/e91fafbc05ca189c67f8a4936ff825a9f719dcab",
-                "reference": "e91fafbc05ca189c67f8a4936ff825a9f719dcab",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/bc650b2c0cd65b1ebc539516ab56dbf80cae175f",
+                "reference": "bc650b2c0cd65b1ebc539516ab56dbf80cae175f",
                 "shasum": ""
             },
             "require": {
@@ -845,7 +845,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2024-04-10T14:01:15+00:00"
+            "time": "2024-04-13T06:38:43+00:00"
         },
         {
             "name": "sebastian/cli-parser",
