@@ -11,7 +11,7 @@
     "autoload": {
         "psr-4": {
             "Diana\\": "src/Diana/",
-            "Diana\\Tests": "tests/"
+            "Diana\\Tests\\": "tests/"
         }
     },
     "scripts": {
