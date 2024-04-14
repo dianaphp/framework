@@ -3,83 +3,124 @@
 namespace Diana\IO;
 
 use Closure;
+use Composer\Autoload\ClassLoader;
 use Diana\IO\Request;
 use Diana\IO\Response;
 use Diana\IO\Contracts\Kernel as KernelContract;
+use Diana\Routing\Contracts\Router;
+use Diana\Routing\Exceptions\CommandNotFoundException;
+use Diana\Routing\Exceptions\RouteNotFoundException;
+use Diana\Routing\Exceptions\UnsupportedRequestTypeException;
 use Diana\Runtime\Container;
+use Diana\Runtime\Contracts\Bootable;
+use Diana\Runtime\Implementations\Boot;
+use Diana\Support\Collection\Collection;
 use Diana\Support\Helpers\Filesystem;
-use RuntimeException;
 use Diana\IO\Pipeline;
 
-use Diana\Contracts\Middleware;
-
-class Kernel implements KernelContract
+class Kernel implements KernelContract, Bootable
 {
+    use Boot;
+
+    protected array $packages = [];
+
+    protected array $controllers = [];
+
     protected array $middleware = [];
 
     protected Pipeline $pipeline;
 
-    protected $requestHandler;
-
     public function registerMiddleware(string|Closure $middleware): void
     {
-        if (is_string($middleware) && is_a($middleware, Middleware::class))
-            throw new RuntimeException('Attempted to register a middleware [' . $middleware . '] that does not implement Middleware.');
-
         $this->middleware[] = $middleware;
     }
 
-    protected function setExceptionHandler(): void
+    public function __construct(protected Container $container, protected ClassLoader $classLoader)
     {
-        // TODO: clean up
-        error_reporting(E_ALL);
-        ini_set('display_errors', true ? 'On' : 'Off');
-        ini_set('log_errors', 'On');
-        ini_set('error_log', Filesystem::absPath('./logs/error.log'));
-        ini_set('access_log', Filesystem::absPath('./logs/access.log'));
-        ini_set('date.timezone', 'Europe/Berlin');
-
-        ini_set('xdebug.var_display_max_depth', 10);
-        ini_set('xdebug.var_display_max_children', 256);
-        ini_set('xdebug.var_display_max_data', 1024);
-        //ini_set('xdebug.max_nesting_level', 9999);
-
-        $whoops = new \Whoops\Run;
-        $whoops->pushHandler(new \Whoops\Handler\PlainTextHandler);
-        $whoops->register();
-
-        // set_exception_handler(function ($error) {
-        //     return Exception::handleException($error);
-        // });
-
-        // register_shutdown_function(function () {
-        //     if ($error = error_get_last()) {
-        //         ob_end_clean();
-        //         FatalCodeException::throw ($error['message'], $error["type"], 0, $error["file"], $error["line"]);
-        //     }
-        // });
-
-        // set_error_handler(function ($errno, $errstr, $errfile, $errline) {
-        //     CodeException::throw ($errstr, $errno, 0, $errfile, $errline);
-        // });
     }
 
-    public function __construct(private Container $container)
+    public function handle(Request $request): Response
     {
-        $this->setExceptionHandler();
-    }
+        $this->boot();
 
-    public function run(Request $request): Response
-    {
+        $router = $this->container->resolve(Router::class);
+        $router->load(Filesystem::absPath("./cache/routes.php"), fn() => $app->getControllers());
+
         $this->container->instance(Request::class, $request);
 
         return (new Pipeline($this->container))
-            ->send($request, new Response())
+            ->send($request)
             ->pipe($this->middleware)
+            ->pipe(function (Request $request) use ($router) {
+                try {
+                    if ($request instanceof HttpRequest)
+                        $resolution = $router->findRoute($request->getRoute(), $request->getMethod());
+                    elseif ($request instanceof ConsoleRequest) {
+                        $resolution = $router->findCommand($request->getCommand(), $request->args->getAll());
+                    } else
+                        throw new UnsupportedRequestTypeException("The provided request type is not being supported by the router.");
+                } catch (RouteNotFoundException | CommandNotFoundException $e) {
+                    return new Response("404");
+                }
+
+                return (new Pipeline($this->container))
+                    ->send($request, $resolution)
+                    ->pipe($resolution['middleware'])
+                    ->pipe(function () use ($resolution) {
+                        return new Response($this->container->call($resolution['controller'] . '@' . $resolution['method'], $resolution['params']));
+                    })
+                    ->expect(Response::class);
+            })
             ->expect(Response::class);
     }
 
-    public function terminate(): void
+    public function registerPackage(...$classes): void
     {
+        $classes = (new Collection($classes))->flat();
+        foreach ($classes as $class) {
+            if (in_array($class, $this->packages))
+                continue;
+
+            $this->packages[] = $class;
+
+            $this->container->instance($class, $package = $this->container->resolve($class)->withPath($this->classLoader));
+
+            if ($this->hasBooted())
+                $package->performBoot($this->container);
+        }
+    }
+
+    public function registerController(...$controllers): void
+    {
+        foreach ((new Collection($controllers))->flat() as $controller) {
+            if (!in_array($controller, $this->controllers))
+                $this->controllers[] = $controller;
+        }
+    }
+
+    public function boot(): void
+    {
+        $this->registerPackage(\App\AppPackage::class);
+
+        $this->booted = true;
+
+        foreach ($this->packages as $package)
+            $this->container->resolve($package)->performBoot($this->container);
+    }
+
+    public function terminate(Request $request, Response $response): void
+    {
+        foreach ($this->terminatingCallbacks as $terminatingCallback) {
+            $terminatingCallback();
+        }
+    }
+
+    protected array $terminatingCallbacks = [];
+
+    public function terminating(Closure $callback)
+    {
+        $this->terminatingCallbacks[] = $callback;
+
+        return $this;
     }
 }

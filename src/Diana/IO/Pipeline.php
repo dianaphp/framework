@@ -5,6 +5,7 @@ namespace Diana\IO;
 use Closure;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\Runtime\Container;
+use Diana\Support\Helpers\Arr;
 use RuntimeException;
 
 class Pipeline
@@ -50,29 +51,24 @@ class Pipeline
         return $this;
     }
 
-    protected function run(Closure|string $current, Closure $next)
-    {
-        if ($current instanceof Closure)
-            return $current($this->input, $next, $this->output, $this->data);
-        else if (is_string($current)) {
-            $instance = $this->container->resolve($current);
-            return $instance->run($this->input, $next, $this->output, $this->data);
-        }
-    }
-
     public function pipe(Closure|array|string $pipes = [])
     {
-        if (is_array($pipes)) {
-            $next = function () use (&$next, &$pipes) {
-                $current = array_shift($pipes);
+        $next = function () use (&$next, &$pipes) {
+            $current = array_shift($pipes);
 
-                if ($current)
-                    $this->output = $this->run($current, $next);
-            };
+            if ($current) {
+                if ($current instanceof Closure)
+                    return $current($this->input, $next, $this->output, $this->data);
+                else if (is_string($current)) {
+                    $instance = $this->container->resolve($current);
+                    return $instance->run($this->input, $next, $this->output, $this->data);
+                }
+            }
+        };
 
-            $next();
-        } else
-            $this->output = $this->run($pipes, function () {});
+        $pipes = Arr::wrap($pipes);
+
+        $this->output = $next();
 
         return $this;
     }
