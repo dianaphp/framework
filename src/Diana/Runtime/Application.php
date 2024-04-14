@@ -28,22 +28,41 @@ class Application extends Container implements Bootable, HasPath, Configurable
 
     protected function __construct(protected string $path, protected ClassLoader $classLoader)
     {
-        $this->registerBindings();
-
-        $this->provideAliases();
-
         Filesystem::setBasePath($path);
 
+        $this->registerBindings();
+
         $this->loadConfig();
+
+        $this->provideAliases();
     }
 
     protected array $caches = [];
 
     protected function provideAliases()
     {
-        $this->caches[Aliases::class] = new Aliases($this);
-        $this->caches[Aliases::class]->cache();
-        $this->caches[Aliases::class]->provide();
+        // cache ide helpers
+        // TODO: make this a command
+        if (!file_exists($cachePath = Filesystem::absPath($this->config['aliasCachePath']))) {
+            $cache = "<?php" . str_repeat(PHP_EOL, 2);
+
+            foreach ($this->config['aliases'] as $class)
+                $cache .= "class " . substr($class, strrpos($class, '\\') + 1) . " extends $class {}" . PHP_EOL;
+
+            file_put_contents($cachePath, $cache);
+        }
+
+        // provide aliases
+        foreach ($this->config['aliases'] as $class)
+            class_alias($class, substr($class, strrpos($class, '\\') + 1));
+    }
+
+    public function getConfigDefault(): array
+    {
+        return [
+            'aliasCachePath' => './cache/aliases.php',
+            'aliases' => []
+        ];
     }
 
     public static function make(string $path, ClassLoader $classLoader): static
