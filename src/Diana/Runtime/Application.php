@@ -34,6 +34,7 @@ class Application extends Container implements HasPath, Configurable
         return [
             'aliasCachePath' => './cache/aliases.php',
             'aliases' => [],
+            'entryPoint' => \App\AppPackage::class,
             'env' => 'dev',
             'kernel' => \Diana\IO\Kernel::class,
             'logs' => [
@@ -95,7 +96,7 @@ class Application extends Container implements HasPath, Configurable
     public function handleRequest(Request $request): void
     {
         $kernel = $this->resolve(Kernel::class);
-        $response = $kernel->handle($request);
+        $response = $kernel->handle($request, $this->config->entryPoint);
         $response->emit();
         $kernel->terminate($request, $response);
     }

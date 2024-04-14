@@ -21,6 +21,8 @@ use Closure;
 use Diana\Support\Helpers\Filesystem;
 use Diana\Support\Helpers\Data;
 use Diana\Support\Serializer\ArraySerializer;
+use Diana\Routing\Attributes\HttpErrorHandler;
+use Diana\Routing\Attributes\CommandErrorHandler;
 
 class FileRouter implements RouterContract
 {
@@ -65,7 +67,21 @@ class FileRouter implements RouterContract
                 foreach ($attributes as $attribute) {
                     $attributeName = $attribute->getName();
 
-                    if ($attributeName == Command::class) {
+                    if ($attributeName == HttpErrorHandler::class) {
+                        $this->routes['__error'] = [
+                            'controller' => $controller,
+                            'method' => $method->name,
+                            'middleware' => $middleware,
+                        ];
+                        continue;
+                    } elseif ($attributeName == CommandErrorHandler::class) {
+                        $this->commands['__error'] = [
+                            'controller' => $controller,
+                            'method' => $method->name,
+                            'middleware' => $middleware,
+                        ];
+                        continue;
+                    } elseif ($attributeName == Command::class) {
                         $arguments = $attribute->getArguments();
 
                         if (empty($arguments))
@@ -133,6 +149,24 @@ class FileRouter implements RouterContract
         }
 
         throw new RouteNotFoundException("The route [{$path}] using the method [{$method}] could not have been found.");
+    }
+
+    public function getErrorRouteHandler()
+    {
+        if (isset($this->routes['__error'])) {
+            $route = $this->routes['__error'];
+            $route['params'] = [];
+            return $route;
+        }
+    }
+
+    public function getErrorCommandHandler()
+    {
+        if (isset($this->commands['__error'])) {
+            $route = $this->commands['__error'];
+            $route['params'] = [];
+            return $route;
+        }
     }
 
     public function findCommand(string $commandName, array $args = []): array

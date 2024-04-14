@@ -9,9 +9,15 @@ class Response
 {
     use Headers;
 
-    public function __construct(protected mixed $response = "", array $headers = [])
+    public function __construct(protected mixed $response = "", protected int $errorCode = 200, array $headers = [])
     {
         $this->headers = $headers;
+        http_response_code($this->errorCode);
+    }
+
+    public function setErrorCode(int $errorCode): void
+    {
+        http_response_code($this->errorCode = $errorCode);
     }
 
     public function emit(): void
@@ -27,8 +33,8 @@ class Response
         };
     }
 
-    public function set($response): void
+    public function getErrorCode()
     {
-        $this->response = $response;
+        return $this->errorCode;
     }
 }

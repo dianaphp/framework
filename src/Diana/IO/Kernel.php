@@ -39,12 +39,17 @@ class Kernel implements KernelContract, Bootable
     {
     }
 
-    public function handle(Request $request): Response
+    public function handle(Request $request, string $entryPoint): Response
     {
-        $this->boot();
+        $this->registerPackage($entryPoint);
+
+        $this->booted = true;
+
+        foreach ($this->packages as $package)
+            $this->container->resolve($package)->performBoot($this->container);
 
         $router = $this->container->resolve(Router::class);
-        $router->load(Filesystem::absPath("./cache/routes.php"), fn() => $app->getControllers());
+        $router->load(Filesystem::absPath("./cache/routes.php"), fn() => $this->controllers);
 
         $this->container->instance(Request::class, $request);
 
@@ -59,15 +64,23 @@ class Kernel implements KernelContract, Bootable
                         $resolution = $router->findCommand($request->getCommand(), $request->args->getAll());
                     } else
                         throw new UnsupportedRequestTypeException("The provided request type is not being supported by the router.");
-                } catch (RouteNotFoundException | CommandNotFoundException $e) {
-                    return new Response("404");
+                } catch (RouteNotFoundException $e) {
+                    if (!$resolution = $router->getErrorRouteHandler())
+                        return new Response("HTTP Error 404 - This page could not be found.", 404);
+                    else
+                        $resolution['params']['errorCode'] = 404;
+                } catch (CommandNotFoundException $e) {
+                    if (!$resolution = $router->getErrorCommandHandler())
+                        return new Response("This command could not be found.", 1);
+                    else
+                        $resolution['params']['errorCode'] = 1;
                 }
 
                 return (new Pipeline($this->container))
                     ->send($request, $resolution)
                     ->pipe($resolution['middleware'])
                     ->pipe(function () use ($resolution) {
-                        return new Response($this->container->call($resolution['controller'] . '@' . $resolution['method'], $resolution['params']));
+                        return new Response($this->container->call($resolution['controller'] . '@' . $resolution['method'], $resolution['params']), $resolution['params']['errorCode'] ?? (php_sapi_name() == 'cli' ? 0 : 200));
                     })
                     ->expect(Response::class);
             })
@@ -98,21 +111,12 @@ class Kernel implements KernelContract, Bootable
         }
     }
 
-    public function boot(): void
-    {
-        $this->registerPackage(\App\AppPackage::class);
-
-        $this->booted = true;
-
-        foreach ($this->packages as $package)
-            $this->container->resolve($package)->performBoot($this->container);
-    }
-
     public function terminate(Request $request, Response $response): void
     {
-        foreach ($this->terminatingCallbacks as $terminatingCallback) {
+        foreach ($this->terminatingCallbacks as $terminatingCallback)
             $terminatingCallback();
-        }
+
+        exit($response->getErrorCode());
     }
 
     protected array $terminatingCallbacks = [];

@@ -8,7 +8,7 @@ use Diana\IO\Response;
 
 interface Kernel
 {
-    public function handle(Request $request): Response;
+    public function handle(Request $request, string $entryPoint): Response;
 
     public function registerMiddleware(string|Closure $middleware): void;
 
