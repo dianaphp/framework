@@ -10,23 +10,31 @@ use Diana\IO\Request;
 use Diana\IO\Contracts\Kernel;
 
 use Diana\Runtime\Contracts\Configurable;
-use Diana\Runtime\Contracts\HasPath;
 use Diana\Runtime\Implementations\Config;
-use Diana\Runtime\Implementations\Path;
+use Diana\Support\Collection\Collection;
 use Diana\Support\Helpers\Filesystem;
 
-class Application extends Container implements HasPath, Configurable
+class Application extends Container implements Configurable
 {
-    use Config, Path;
+    use Config;
+
+    protected Collection $paths;
 
     public function __construct(protected string $path, protected ClassLoader $classLoader)
     {
+        $this->paths = (new Collection(['app' => $path, 'framework' => dirname(dirname(dirname(__DIR__)))]));
+
         Filesystem::setBasePath($path);
 
         $this->loadConfig();
         $this->setExceptionHandler();
         $this->registerBindings();
         $this->provideAliases();
+    }
+
+    public function &getPaths(): Collection
+    {
+        return $this->paths;
     }
 
     public function getConfigDefault(): array
@@ -68,7 +76,7 @@ class Application extends Container implements HasPath, Configurable
     protected function registerBindings(): void
     {
         static::setInstance($this);
-        // $this->instance(Application::class, $this);
+        $this->instance(Application::class, $this);
         $this->instance(Container::class, $this);
         $this->instance(ClassLoader::class, $this->classLoader);
 

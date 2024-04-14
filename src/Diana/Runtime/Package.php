@@ -9,7 +9,7 @@ use Diana\Runtime\Implementations\Boot;
 use Diana\Runtime\Implementations\Config;
 use Diana\Runtime\Implementations\Path;
 
-abstract class Package implements Bootable, Configurable, HasPath
+abstract class Package implements Bootable, Configurable
 {
-    use Boot, Config, Path;
+    use Boot, Config;
 }

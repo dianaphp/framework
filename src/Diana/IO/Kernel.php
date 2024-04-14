@@ -8,9 +8,12 @@ use Diana\IO\Request;
 use Diana\IO\Response;
 use Diana\IO\Contracts\Kernel as KernelContract;
 use Diana\Routing\Contracts\Router;
+use Diana\Controllers\CoreCommandsController;
+use Diana\Controllers\StubCommandsController;
 use Diana\Routing\Exceptions\CommandNotFoundException;
 use Diana\Routing\Exceptions\RouteNotFoundException;
 use Diana\Routing\Exceptions\UnsupportedRequestTypeException;
+use Diana\Runtime\Application;
 use Diana\Runtime\Container;
 use Diana\Runtime\Contracts\Bootable;
 use Diana\Runtime\Implementations\Boot;
@@ -35,12 +38,17 @@ class Kernel implements KernelContract, Bootable
         $this->middleware[] = $middleware;
     }
 
-    public function __construct(protected Container $container, protected ClassLoader $classLoader)
+    public function __construct(protected Application $app, protected Container $container, protected ClassLoader $classLoader)
     {
     }
 
     public function handle(Request $request, string $entryPoint): Response
     {
+        $this->registerController(
+            CoreCommandsController::class,
+            StubCommandsController::class
+        );
+
         $this->registerPackage($entryPoint);
 
         $this->booted = true;
@@ -96,7 +104,8 @@ class Kernel implements KernelContract, Bootable
 
             $this->packages[] = $class;
 
-            $this->container->instance($class, $package = $this->container->resolve($class)->withPath($this->classLoader));
+            $this->container->instance($class, $package = $this->container->resolve($class));
+            $this->app->getPaths()[$class] = realpath(dirname($this->classLoader->findFile($class), 2));
 
             if ($this->hasBooted())
                 $package->performBoot($this->container);

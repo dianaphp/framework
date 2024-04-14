@@ -29,6 +29,7 @@ class Response
     {
         return match (true) {
             $this->response instanceof JsonSerializable || is_iterable($this->response) => json_encode($this->response),
+            $this->response == null => '',
             default => $this->response
         };
     }
