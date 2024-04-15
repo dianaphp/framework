@@ -42,9 +42,12 @@ class Application extends Container implements Configurable
         return [
             'aliasCachePath' => './cache/aliases.php',
             'aliases' => [],
+            'drivers' => [
+                \Diana\IO\Contracts\Kernel::class => \Diana\IO\Kernel::class,
+                \Diana\Routing\Contracts\Router::class => \Diana\Routing\Drivers\FileRouter::class,
+            ],
             'entryPoint' => \App\AppPackage::class,
             'env' => 'dev',
-            'kernel' => \Diana\IO\Kernel::class,
             'logs' => [
                 'error' => './logs/error.log',
                 'access' => './logs/access.log'
@@ -80,7 +83,8 @@ class Application extends Container implements Configurable
         $this->instance(Container::class, $this);
         $this->instance(ClassLoader::class, $this->classLoader);
 
-        $this->singleton(Kernel::class, $this->config->kernel);
+        foreach ($this->config->drivers as $name => $driver)
+            $this->singleton($name, $driver);
     }
 
     protected function provideAliases()
@@ -104,7 +108,8 @@ class Application extends Container implements Configurable
     public function handleRequest(Request $request): void
     {
         $kernel = $this->resolve(Kernel::class);
-        $response = $kernel->handle($request, $this->config->entryPoint);
+        $kernel->boot($request, $this->config->entryPoint);
+        $response = $kernel->handle($request);
         $response->emit();
         $kernel->terminate($request, $response);
     }

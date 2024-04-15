@@ -40,26 +40,39 @@ class Kernel implements KernelContract, Bootable
 
     public function __construct(protected Application $app, protected Container $container, protected ClassLoader $classLoader)
     {
+
     }
 
-    public function handle(Request $request, string $entryPoint): Response
+    public function runCommand(string $command)
+    {
+        $args = explode(' ', $command);
+        $command = array_shift($args);
+        return $this->handle(new ConsoleRequest($command, $args));
+    }
+
+    public function boot(Request $request, string $entryPoint)
     {
         $this->registerController(
             CoreCommandsController::class,
             StubCommandsController::class
         );
 
+        $this->container->instance(Request::class, $request);
+
         $this->registerPackage($entryPoint);
+
+        $router = $this->container->resolve(Router::class);
+        $router->load(Filesystem::absPath("./cache/routes.php"), fn() => $this->controllers);
 
         $this->booted = true;
 
         foreach ($this->packages as $package)
             $this->container->resolve($package)->performBoot($this->container);
+    }
 
+    public function handle(Request $request): Response
+    {
         $router = $this->container->resolve(Router::class);
-        $router->load(Filesystem::absPath("./cache/routes.php"), fn() => $this->controllers);
-
-        $this->container->instance(Request::class, $request);
 
         return (new Pipeline($this->container))
             ->send($request)
