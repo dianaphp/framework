@@ -9,6 +9,8 @@ use Diana\Support\Serializer\ArraySerializer;
 
 trait Config
 {
+    const cfgFolder = './cfg';
+
     public ImmutableCollection $config;
 
     public function getConfigDefault(): array
@@ -47,7 +49,7 @@ trait Config
         $config = [];
 
         if ($configFile = $this->getConfigFile()) {
-            $configFile = Filesystem::absPath('./config/' . $configFile . '.php');
+            $configFile = Filesystem::absPath(self::cfgFolder . $configFile . '.php');
 
             if ($exists = file_exists($configFile))
                 $config = require $configFile;
