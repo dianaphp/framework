@@ -8,10 +8,10 @@ class HttpRequest extends Request
 {
     use Headers;
 
-    protected string $route;
-    protected string $host;
-    protected string $query;
-    protected string $protocol;
+    protected ?string $route = null;
+    protected ?string $host = null;
+    protected ?string $query = null;
+    protected ?string $protocol = null;
 
     public function __construct(
         string $url = '',
@@ -27,10 +27,12 @@ class HttpRequest extends Request
                 $url = substr($url, $pos);
             }
         } else
-            $this->protocol = strtolower(strtok($_SERVER["SERVER_PROTOCOL"], "/"));
+            if (isset($_SERVER["SERVER_PROTOCOL"]))
+                $this->protocol = strtolower(strtok($_SERVER["SERVER_PROTOCOL"], "/"));
 
         if (!$this->host)
-            $this->host = $_SERVER["HTTP_HOST"];
+            if (isset($_SERVER["HTTP_HOST"]))
+                $this->host = $_SERVER["HTTP_HOST"];
 
         if (($pos = strpos($url, "?")) !== false) {
             $this->query = substr($url, $pos + 1);

@@ -2,6 +2,8 @@
 
 namespace Diana\Tests;
 
+use Diana\IO\ConsoleRequest;
+use Diana\IO\HttpRequest;
 use Diana\Routing\Contracts\Router;
 use Diana\Routing\Drivers\FileRouter;
 use Diana\Routing\Exceptions\CommandNotFoundException;
@@ -93,11 +95,11 @@ class RouterTest extends TestCase
 
             $route = $routes[$method][$path];
 
-            $this->assertNotEquals($route, $this->router->findRoute($path, $method));
+            $this->assertNotEquals($route, $this->router->resolve(new HttpRequest($path, $method)));
 
             $route['params'] = [];
 
-            $this->assertEquals($route, $this->router->findRoute($path, $method));
+            $this->assertEquals($route, $this->router->resolve(new HttpRequest($path, $method)));
         }
     }
 
@@ -106,7 +108,7 @@ class RouterTest extends TestCase
         $this->router->loadControllers([AllMethodsController::class]);
 
         $this->expectException(RouteNotFoundException::class);
-        $this->router->findRoute('/GET', 'GET');
+        $this->router->resolve(new HttpRequest('/GET', 'GET'));
     }
 
     public function testParamRouteResolving()
@@ -116,14 +118,14 @@ class RouterTest extends TestCase
 
         $route = $routes['GET']['/noparam'];
         $route['params'] = [];
-        $this->assertEquals($route, $this->router->findRoute('/noparam', 'GET'));
+        $this->assertEquals($route, $this->router->resolve(new HttpRequest('/noparam', 'GET')));
 
         $route = $routes['GET']['/param/:param'];
         $route['params'] = ['param' => '123'];
-        $this->assertNotEquals($route, $this->router->findRoute('/param/test', 'GET'));
+        $this->assertNotEquals($route, $this->router->resolve(new HttpRequest('/param/test', 'GET')));
 
         $route['params'] = ['param' => 'test'];
-        $this->assertEquals($route, $this->router->findRoute('/param/test', 'GET'));
+        $this->assertEquals($route, $this->router->resolve(new HttpRequest('/param/test', 'GET')));
     }
 
     public function testInvalidParamRouteResolving()
@@ -131,14 +133,14 @@ class RouterTest extends TestCase
         $this->router->loadControllers([ParamController::class]);
 
         $this->expectException(RouteNotFoundException::class);
-        $this->router->findRoute('/param/', 'GET');
+        $this->router->resolve(new HttpRequest('/param/', 'GET'));
     }
 
     public function testCommandResolving()
     {
         $this->router->loadControllers([CommandController::class]);
 
-        $command = $this->router->findCommand('test', []);
+        $command = $this->router->resolve(new ConsoleRequest('test', []));
         $expectedCommand = $this->router->getCommands()['test'];
         $expectedCommand['params'] = [];
         $this->assertEquals($expectedCommand, $command);
@@ -155,14 +157,14 @@ class RouterTest extends TestCase
         $this->router->loadControllers([CommandController::class]);
 
         $this->expectException(CommandNotFoundException::class);
-        $this->router->findCommand('invalid', []);
+        $this->router->resolve(new ConsoleRequest('invalid', []));
     }
 
     public function testArgCommandResolving()
     {
         $this->router->loadControllers([CommandController::class]);
 
-        $command = $this->router->findCommand('testarg', [1]);
+        $command = $this->router->resolve(new ConsoleRequest('testarg', [1]));
         $expectedCommand = $this->router->getCommands()['testarg'];
         $expectedCommand['params'] = ['opt' => 1];
         $this->assertEquals($expectedCommand, $command);
@@ -177,7 +179,7 @@ class RouterTest extends TestCase
     {
         $this->router->loadControllers([CommandController::class]);
 
-        $command = $this->router->findCommand('testarg', []);
+        $command = $this->router->resolve(new ConsoleRequest('testarg', []));
 
         $expectedCommand = $this->router->getCommands()['testarg'];
         $expectedCommand['params'] = [];
