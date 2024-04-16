@@ -49,7 +49,7 @@ trait Config
         $config = [];
 
         if ($configFile = $this->getConfigFile()) {
-            $configFile = Filesystem::absPath(self::cfgFolder . $configFile . '.php');
+            $configFile = Filesystem::absPath(self::cfgFolder . '/' . $configFile . '.php');
 
             if ($exists = file_exists($configFile))
                 $config = require $configFile;
