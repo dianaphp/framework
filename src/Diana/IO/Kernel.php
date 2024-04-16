@@ -27,7 +27,10 @@ class Kernel implements KernelContract, Bootable
 
     protected array $packages = [];
 
-    protected array $controllers = [];
+    protected array $controllers = [
+        CoreCommandsController::class,
+        StubCommandsController::class
+    ];
 
     protected array $middleware = [];
 
@@ -52,11 +55,6 @@ class Kernel implements KernelContract, Bootable
 
     public function boot(Request $request, string $entryPoint)
     {
-        $this->registerController(
-            CoreCommandsController::class,
-            StubCommandsController::class
-        );
-
         $this->container->instance(Request::class, $request);
 
         $this->registerPackage($entryPoint);
@@ -79,12 +77,7 @@ class Kernel implements KernelContract, Bootable
             ->pipe($this->middleware)
             ->pipe(function (Request $request) use ($router) {
                 try {
-                    if ($request instanceof HttpRequest)
-                        $resolution = $router->findRoute($request->getRoute(), $request->getMethod());
-                    elseif ($request instanceof ConsoleRequest) {
-                        $resolution = $router->findCommand($request->getCommand(), $request->args->getAll());
-                    } else
-                        throw new UnsupportedRequestTypeException("The provided request type is not being supported by the router.");
+                    $resolution = $router->resolve($request);
                 } catch (RouteNotFoundException $e) {
                     if (!$resolution = $router->getErrorRouteHandler())
                         return new Response("HTTP Error 404 - This page could not be found.", 404);

@@ -14,7 +14,7 @@ abstract class Request
             $argv = $_SERVER['argv'];
             array_shift($argv);
             $command = array_shift($argv);
-            return new ConsoleRequest($command, $argv);
+            return new ConsoleRequest($command ?? 'version', $argv);
         } else {
             $headers = [];
             foreach ($_SERVER as $key => $value) {

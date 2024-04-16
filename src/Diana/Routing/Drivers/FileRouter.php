@@ -23,6 +23,11 @@ use Diana\Support\Helpers\Data;
 use Diana\Support\Serializer\ArraySerializer;
 use Diana\Routing\Attributes\HttpErrorHandler;
 use Diana\Routing\Attributes\CommandErrorHandler;
+use Diana\IO\Request;
+use Diana\Routing\Exceptions\UnsupportedRequestTypeException;
+use Diana\Support\Debug;
+use Diana\IO\HttpRequest;
+use Diana\IO\ConsoleRequest;
 
 class FileRouter implements RouterContract
 {
@@ -125,7 +130,17 @@ class FileRouter implements RouterContract
         }
     }
 
-    public function findRoute(string $path, string $method): array
+    public function resolve(Request $request): array
+    {
+        if ($request instanceof HttpRequest)
+            return $this->findRoute($request->getRoute(), $request->getMethod());
+        elseif ($request instanceof ConsoleRequest) {
+            return $this->findCommand($request->getCommand(), $request->args->getAll());
+        } else
+            throw new UnsupportedRequestTypeException("The provided request type is not being supported by the router.");
+    }
+
+    protected function findRoute(string $path, string $method): array
     {
         $trim = trim($path, '/');
         $segments = explode('/', $trim);
@@ -169,7 +184,7 @@ class FileRouter implements RouterContract
         }
     }
 
-    public function findCommand(string $commandName, array $args = []): array
+    protected function findCommand(string $commandName, array $args = []): array
     {
         if (isset($this->commands[$commandName])) {
             $command = $this->commands[$commandName];
