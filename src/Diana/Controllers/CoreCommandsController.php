@@ -26,7 +26,7 @@ class CoreCommandsController
             }
         };
 
-        $scandel(Filesystem::absPath('./cache'));
+        $scandel(Filesystem::absPath('./tmp'));
 
         return 'Cache has been cleared.';
     }

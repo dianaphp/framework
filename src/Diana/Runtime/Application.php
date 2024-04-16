@@ -40,7 +40,7 @@ class Application extends Container implements Configurable
     public function getConfigDefault(): array
     {
         return [
-            'aliasCachePath' => './cache/aliases.php',
+            'aliasCachePath' => './tmp/aliases.php',
             'aliases' => [],
             'drivers' => [
                 \Diana\IO\Contracts\Kernel::class => \Diana\IO\Kernel::class,
@@ -52,6 +52,7 @@ class Application extends Container implements Configurable
                 'error' => './logs/error.log',
                 'access' => './logs/access.log'
             ],
+            'routeCachePath' => './tmp/routes.php',
             'timezone' => 'Europe/Berlin'
         ];
     }
@@ -108,7 +109,7 @@ class Application extends Container implements Configurable
     public function handleRequest(Request $request): void
     {
         $kernel = $this->resolve(Kernel::class);
-        $kernel->boot($request, $this->config->entryPoint);
+        $kernel->boot($request, $this->config->entryPoint, $this->config->routeCachePath);
         $response = $kernel->handle($request);
         $response->emit();
         $kernel->terminate($request, $response);

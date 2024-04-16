@@ -53,14 +53,14 @@ class Kernel implements KernelContract, Bootable
         return $this->handle(new ConsoleRequest($command, $args));
     }
 
-    public function boot(Request $request, string $entryPoint)
+    public function boot(Request $request, string $entryPoint, string $routeCachePath)
     {
         $this->container->instance(Request::class, $request);
 
         $this->registerPackage($entryPoint);
 
         $router = $this->container->resolve(Router::class);
-        $router->load(Filesystem::absPath("./cache/routes.php"), fn() => $this->controllers);
+        $router->load(Filesystem::absPath($routeCachePath), fn() => $this->controllers);
 
         $this->booted = true;
 
