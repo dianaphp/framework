@@ -12,6 +12,7 @@ class StubCommandsController
     #[Command("create-package", "name")]
     public function makeController(Application $app, string $name)
     {
+        // TODO: Outsource
         $stub = str_replace('{{name}}', $name, file_get_contents($app->getPaths()->framework . '/stubs/Package.php.stub'));
         $destination = Filesystem::absPath('./src/' . $name . '.php');
         if (file_exists($destination))

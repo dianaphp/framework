@@ -7,14 +7,16 @@ use RuntimeException;
 
 trait Boot
 {
-    public bool $booted = false;
+    private bool $booted = false;
 
     public function performBoot(Container $container)
     {
         if ($this->hasBooted())
             throw new RuntimeException('The runtime [' . get_class($this) . '] has already been booted.');
 
-        $container->call([$this, 'boot']);
+        if(method_exists($this, 'boot'))
+            $container->call([$this, 'boot']);
+
         $this->booted = true;
     }
 

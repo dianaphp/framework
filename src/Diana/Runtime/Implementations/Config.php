@@ -25,12 +25,12 @@ trait Config
 
     public function getConfigCreate(): bool
     {
-        return false;
+        return true;
     }
 
     public function getConfigAppend(): bool
     {
-        return false;
+        return true;
     }
 
     public function getConfigVisible(): array

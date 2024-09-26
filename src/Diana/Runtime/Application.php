@@ -22,7 +22,7 @@ class Application extends Container implements Configurable
 
     public function __construct(protected string $path, protected ClassLoader $classLoader)
     {
-        $this->paths = (new Collection(['app' => $path, 'framework' => dirname(dirname(dirname(__DIR__)))]));
+        $this->paths = (new Collection(['app' => $path, 'framework' => dirname(__DIR__, 3)]));
 
         Filesystem::setBasePath($path);
 
@@ -55,6 +55,21 @@ class Application extends Container implements Configurable
             'routeCachePath' => './tmp/routes.php',
             'timezone' => 'Europe/Berlin'
         ];
+    }
+
+    public function getConfigFile(): string
+    {
+        return 'framework';
+    }
+
+    public function getConfigAppend(): bool
+    {
+        return true;
+    }
+
+    public function getConfigCreate(): bool
+    {
+        return true;
     }
 
     protected function setExceptionHandler(): void

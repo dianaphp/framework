@@ -10,6 +10,7 @@ class CoreCommandsController
     #[Command("cache-clear")]
     public function cacheClear()
     {
+        // TODO: Outsource
         $scandel = function (string $dir) use (&$scandel) {
             $dirs = [];
 

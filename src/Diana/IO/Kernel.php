@@ -16,6 +16,8 @@ use Diana\Routing\Exceptions\UnsupportedRequestTypeException;
 use Diana\Runtime\Application;
 use Diana\Runtime\Container;
 use Diana\Runtime\Contracts\Bootable;
+use Diana\Runtime\Exceptions\BindingResolutionException;
+use Diana\Runtime\Exceptions\CircularDependencyException;
 use Diana\Runtime\Implementations\Boot;
 use Diana\Support\Collection\Collection;
 use Diana\Support\Helpers\Filesystem;
@@ -101,6 +103,10 @@ class Kernel implements KernelContract, Bootable
             ->expect(Response::class);
     }
 
+    /**
+     * @throws BindingResolutionException
+     * @throws CircularDependencyException
+     */
     public function registerPackage(...$classes): void
     {
         $classes = (new Collection($classes))->flat();
