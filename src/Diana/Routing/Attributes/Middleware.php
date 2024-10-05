@@ -9,6 +9,5 @@ class Middleware
 {
     public function __construct(protected string $middleware)
     {
-
     }
 }

@@ -14,7 +14,7 @@ class StubCommandsController
     {
         // TODO: Outsource
         $stub = str_replace('{{name}}', $name, file_get_contents($app->getPaths()->framework . '/stubs/Package.php.stub'));
-        $destination = Filesystem::absPath('./src/' . $name . '.php');
+        $destination = $app->path('src/' . $name . '.php');
         if (file_exists($destination))
             return new Response("The given file [{$destination}] already exists.", 2);
         file_put_contents($destination, $stub);

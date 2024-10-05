@@ -20,11 +20,6 @@ class Response
         http_response_code($this->errorCode = $errorCode);
     }
 
-    public function emit(): void
-    {
-        echo (string) $this;
-    }
-
     public function __toString(): string
     {
         return match (true) {

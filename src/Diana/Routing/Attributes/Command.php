@@ -9,6 +9,5 @@ class Command
 {
     public function __construct(protected string $command, protected array $args = [])
     {
-
     }
 }

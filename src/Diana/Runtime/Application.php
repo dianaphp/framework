@@ -4,129 +4,139 @@ namespace Diana\Runtime;
 
 use Closure;
 use Composer\Autoload\ClassLoader;
-
+use Diana\IO\ConsoleRequest;
+use Diana\IO\Exceptions\PipelineException;
+use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Request;
+use Diana\IO\Response;
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Container\BindingResolutionException;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
-use Diana\IO\Contracts\Kernel;
-
-use Diana\Runtime\Contracts\Configurable;
-use Diana\Runtime\Implementations\Config;
-use Diana\Support\Collection\Collection;
-use Diana\Support\Helpers\Filesystem;
-
-class Application extends Container implements Configurable
+class Application extends Package
 {
-    use Config;
+    /**
+     * @var array The currently loaded package classes
+     */
+    protected array $packages = [];
 
-    protected Collection $paths;
-
-    public function __construct(protected string $path, protected ClassLoader $classLoader)
-    {
-        $this->paths = (new Collection(['app' => $path, 'framework' => dirname(__DIR__, 3)]));
-
-        Filesystem::setBasePath($path);
-
-        $this->loadConfig();
-        $this->setExceptionHandler();
+    /**
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
+    public function __construct(
+        protected string $path,
+        protected string $output,
+        protected string $sapi,
+        protected ClassLoader $loader,
+        protected Container $container,
+    ) {
         $this->registerBindings();
-        $this->provideAliases();
+
+        $this->registerPackage(Kernel::class);
     }
 
-    public function &getPaths(): Collection
+    public function registerBindings(): void
     {
-        return $this->paths;
+        $this->container->instance(Container::class, $this->container);
+        $this->container->instance(Application::class, $this);
+        $this->container->instance(ClassLoader::class, $this->loader);
+
+        // TODO: do we need this?
+        // TODO: contextual binding based on $sapi, check capture method
+        $this->container->instance(Request::class, Request::capture());
     }
 
-    public function getConfigDefault(): array
+    /**
+     * Initiates the application lifecycle
+     * @throws NotFoundExceptionInterface
+     * @throws PipelineException
+     * @throws UnexpectedOutputTypeException
+     * @throws ContainerExceptionInterface
+     * @throws BindingResolutionException
+     */
+    public function init(): void
     {
-        return [
-            'aliasCachePath' => './tmp/aliases.php',
-            'aliases' => [],
-            'drivers' => [
-                \Diana\IO\Contracts\Kernel::class => \Diana\IO\Kernel::class,
-                \Diana\Routing\Contracts\Router::class => \Diana\Routing\Drivers\FileRouter::class,
-            ],
-            'entryPoint' => \App\AppPackage::class,
-            'env' => 'dev',
-            'logs' => [
-                'error' => './logs/error.log',
-                'access' => './logs/access.log'
-            ],
-            'routeCachePath' => './tmp/routes.php',
-            'timezone' => 'Europe/Berlin'
-        ];
-    }
+        $status = null;
+        $buffer = fopen($this->output, 'a');
 
-    public function getConfigFile(): string
-    {
-        return 'framework';
-    }
+        $this->booted = true;
 
-    public function getConfigAppend(): bool
-    {
-        return true;
-    }
-
-    public function getConfigCreate(): bool
-    {
-        return true;
-    }
-
-    protected function setExceptionHandler(): void
-    {
-        error_reporting(E_ALL);
-
-        ini_set('display_errors', $this->config->env == 'dev' ? 'On' : 'Off');
-        ini_set('log_errors', 'On');
-        ini_set('error_log', Filesystem::absPath($this->config->logs['error']));
-        ini_set('access_log', Filesystem::absPath($this->config->logs['access']));
-        ini_set('date.timezone', $this->config->timezone);
-
-        ini_set('xdebug.var_display_max_depth', 10);
-        ini_set('xdebug.var_display_max_children', 256);
-        ini_set('xdebug.var_display_max_data', 1024);
-        //ini_set('xdebug.max_nesting_level', 9999);
-
-        $whoops = new \Whoops\Run;
-        $whoops->pushHandler(php_sapi_name() == 'cli' ? new \Whoops\Handler\PlainTextHandler : new \Whoops\Handler\PrettyPageHandler);
-        $whoops->register();
-    }
-
-    protected function registerBindings(): void
-    {
-        static::setInstance($this);
-        $this->instance(Application::class, $this);
-        $this->instance(Container::class, $this);
-        $this->instance(ClassLoader::class, $this->classLoader);
-
-        foreach ($this->config->drivers as $name => $driver)
-            $this->singleton($name, $driver);
-    }
-
-    protected function provideAliases()
-    {
-        // cache ide helpers
-        // TODO: make this a command
-        if (!file_exists($cachePath = Filesystem::absPath($this->config->aliasCachePath))) {
-            $cache = "<?php" . str_repeat(PHP_EOL, 2);
-
-            foreach ($this->config->aliases as $class)
-                $cache .= "class " . substr($class, strrpos($class, '\\') + 1) . " extends $class {}" . PHP_EOL;
-
-            file_put_contents($cachePath, $cache);
+        foreach ($this->packages as $package) {
+            $this->container->get($package)->boot($this->container);
         }
 
-        // provide aliases
-        foreach ($this->config->aliases as $class)
-            class_alias($class, substr($class, strrpos($class, '\\') + 1));
+        try {
+            $response = $this->container->get(Kernel::class)
+                ->handleRequest($this->container->get(Request::class));
+
+            fwrite($buffer, $response);
+
+            $status = $response->getErrorCode();
+        } finally {
+            fclose($buffer);
+
+            $this->terminate($status);
+        }
     }
 
-    public function handleRequest(Request $request): void
+    public function getSapi(): string
     {
-        $kernel = $this->resolve(Kernel::class);
-        $kernel->boot($request, $this->config->entryPoint, $this->config->routeCachePath);
-        $response = $kernel->handle($request);
-        $response->emit();
-        $kernel->terminate($request, $response);
+        return $this->sapi;
+    }
+
+    /**
+     * @throws NotFoundExceptionInterface
+     * @throws PipelineException
+     * @throws ContainerExceptionInterface
+     * @throws UnexpectedOutputTypeException
+     * @throws BindingResolutionException
+     */
+    public function runCommand(string $command): Response
+    {
+        $args = explode(' ', $command);
+        $command = array_shift($args);
+        return $this->container->get(Kernel::class)->handle(new ConsoleRequest($command, $args));
+    }
+
+    /**
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
+    public function registerPackage(string ...$classes): void
+    {
+        foreach ($classes as $class) {
+            if (in_array($class, $this->packages)) {
+                continue;
+            }
+
+            $this->packages[] = $class;
+
+            $this->container->singleton($class);
+            $package = $this->container->get($class);
+
+            if ($this->hasBooted()) {
+                $package->boot($this->container);
+            }
+        }
+    }
+
+    protected array $terminatingCallbacks = [];
+    public function terminating(Closure $callback): Application
+    {
+        $this->terminatingCallbacks[] = $callback;
+        return $this;
+    }
+
+    public function terminate(?int $status = null): void
+    {
+        foreach ($this->terminatingCallbacks as $terminatingCallback) {
+            $terminatingCallback();
+        }
+
+        if ($status !== null) {
+            exit($status);
+        }
     }
 }

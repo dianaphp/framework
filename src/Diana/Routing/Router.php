@@ -1,6 +1,6 @@
 <?php
 
-namespace Diana\Routing\Contracts;
+namespace Diana\Routing;
 
 use Closure;
 use Diana\IO\Request;

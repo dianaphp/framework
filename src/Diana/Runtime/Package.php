@@ -2,14 +2,45 @@
 
 namespace Diana\Runtime;
 
-use Diana\Runtime\Contracts\Bootable;
-use Diana\Runtime\Contracts\Configurable;
-use Diana\Runtime\Contracts\HasPath;
-use Diana\Runtime\Implementations\Boot;
-use Diana\Runtime\Implementations\Config;
-use Diana\Runtime\Implementations\Path;
+use Illuminate\Container\Container;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use RuntimeException;
 
-abstract class Package implements Bootable, Configurable
+abstract class Package
 {
-    use Boot, Config;
+    protected bool $booted = false;
+    protected string $path;
+
+    public function boot(Container $container = new Container()): void
+    {
+        if ($this->hasBooted()) {
+            throw new RuntimeException('The runtime [' . get_class($this) . '] has already been booted.');
+        }
+
+        if (method_exists($this, 'init')) {
+            $container->call([$this, 'init']);
+        }
+
+        $this->booted = true;
+    }
+
+    public function path(string $path): string
+    {
+        $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+        $path = trim($path, DIRECTORY_SEPARATOR);
+        $slugs = explode(DIRECTORY_SEPARATOR, $path);
+        array_splice($slugs, 0, 0, $this->path);
+        return join(DIRECTORY_SEPARATOR, $slugs);
+    }
+
+    public function getPath(): string
+    {
+        return $this->path;
+    }
+
+    public function hasBooted(): bool
+    {
+        return $this->booted;
+    }
 }

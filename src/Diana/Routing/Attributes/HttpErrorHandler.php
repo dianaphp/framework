@@ -9,6 +9,5 @@ class HttpErrorHandler
 {
     public function __construct()
     {
-
     }
 }

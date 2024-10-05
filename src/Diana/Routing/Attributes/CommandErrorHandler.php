@@ -9,6 +9,5 @@ class CommandErrorHandler
 {
     public function __construct()
     {
-
     }
 }
