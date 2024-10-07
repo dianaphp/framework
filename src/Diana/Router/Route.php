@@ -38,7 +38,7 @@ class Route implements RouteInterface
     {
         return $this->params;
     }
-    
+
     public function setSegments(array $segments): void
     {
         $this->segments = $segments;

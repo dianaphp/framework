@@ -7,7 +7,6 @@ use Composer\Autoload\ClassLoader;
 use Diana\Config\FileConfig;
 use Diana\Drivers\Routing\RequestInterface;
 use Diana\IO\ConsoleRequest;
-use Diana\IO\Exceptions\PipelineException;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Request;
 use Diana\IO\Response;
@@ -57,7 +56,6 @@ class Application extends Package
     /**
      * Initiates the application lifecycle
      * @throws NotFoundExceptionInterface
-     * @throws PipelineException
      * @throws UnexpectedOutputTypeException
      * @throws ContainerExceptionInterface
      * @throws BindingResolutionException
@@ -75,7 +73,7 @@ class Application extends Package
 
         try {
             $response = $this->container->get(Kernel::class)
-                ->handleRequest($this->container->get(Request::class));
+                ->handleRequest($this->container->get(RequestInterface::class));
 
             fwrite($buffer, $response);
 
@@ -94,7 +92,6 @@ class Application extends Package
 
     /**
      * @throws NotFoundExceptionInterface
-     * @throws PipelineException
      * @throws ContainerExceptionInterface
      * @throws UnexpectedOutputTypeException
      * @throws BindingResolutionException

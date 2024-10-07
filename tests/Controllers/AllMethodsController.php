@@ -10,7 +10,7 @@ use Diana\Router\Attributes\Put;
 
 class AllMethodsController
 {
-    public static $route = '/methods';
+    public static string $route = '/methods';
 
     #[Get('/GET')]
     public function GET()

@@ -30,7 +30,11 @@ abstract class Request implements RequestInterface
 
             $protocol = strtolower(strtok($_SERVER['SERVER_PROTOCOL'], '/'));
 
-            return new HttpRequest($protocol . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'], $_SERVER['REQUEST_METHOD'], $headers);
+            return new HttpRequest(
+                $protocol . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
+                $_SERVER['REQUEST_METHOD'],
+                $headers
+            );
         }
     }
 
