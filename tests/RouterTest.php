@@ -4,9 +4,9 @@ namespace Diana\Tests;
 
 use Diana\IO\ConsoleRequest;
 use Diana\IO\HttpRequest;
-use Diana\Routing\Drivers\FileRouter;
-use Diana\Routing\Exceptions\CommandNotFoundException;
-use Diana\Routing\Exceptions\RouteNotFoundException;
+use Diana\Router\Exceptions\CommandNotFoundException;
+use Diana\Router\Exceptions\RouteNotFoundException;
+use Diana\Router\FileRouter;
 use Diana\Routing\Router;
 use Diana\Tests\Controllers\AllMethodsController;
 use Diana\Tests\Controllers\CommandController;

@@ -6,7 +6,7 @@ use Illuminate\Container\Container;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
-class Proxy implements IProxy
+class Proxy implements ProxyInterface
 {
     private mixed $instance;
 
@@ -24,9 +24,9 @@ class Proxy implements IProxy
         return $this->instance;
     }
 
-    public function __call($method, $args)
+    public function __call(string $method, array $arguments)
     {
-        return call_user_func_array([$this->instance, $method], $args);
+        return call_user_func_array([$this->instance, $method], $arguments);
     }
 
     public static function __callStatic(string $name, array $arguments)

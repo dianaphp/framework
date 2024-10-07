@@ -2,7 +2,7 @@
 
 namespace Diana\Tests\Controllers;
 
-use Diana\Routing\Attributes\Get;
+use Diana\Router\Attributes\Get;
 
 class ParamController
 {

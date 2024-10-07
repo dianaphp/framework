@@ -4,11 +4,14 @@ namespace Diana\Runtime;
 
 use Closure;
 use Composer\Autoload\ClassLoader;
+use Diana\Config\FileConfig;
+use Diana\Drivers\Routing\RequestInterface;
 use Diana\IO\ConsoleRequest;
 use Diana\IO\Exceptions\PipelineException;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Request;
 use Diana\IO\Response;
+use Diana\Drivers\ConfigInterface;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Psr\Container\ContainerExceptionInterface;
@@ -37,15 +40,18 @@ class Application extends Package
         $this->registerPackage(Kernel::class);
     }
 
-    public function registerBindings(): void
+    protected function registerBindings(): void
     {
         $this->container->instance(Container::class, $this->container);
         $this->container->instance(Application::class, $this);
         $this->container->instance(ClassLoader::class, $this->loader);
 
-        // TODO: do we need this?
+        // register a default driver for the configuration, this is important because the kernel needs configuration
+        $this->container->singleton(ConfigInterface::class, FileConfig::class);
+//        $this->container->singleton(ConfigInterface::class, NullProxy::class);
+
         // TODO: contextual binding based on $sapi, check capture method
-        $this->container->instance(Request::class, Request::capture());
+        $this->container->instance(RequestInterface::class, Request::capture());
     }
 
     /**

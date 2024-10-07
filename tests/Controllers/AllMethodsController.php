@@ -2,11 +2,11 @@
 
 namespace Diana\Tests\Controllers;
 
-use Diana\Routing\Attributes\Delete;
-use Diana\Routing\Attributes\Get;
-use Diana\Routing\Attributes\Patch;
-use Diana\Routing\Attributes\Post;
-use Diana\Routing\Attributes\Put;
+use Diana\Router\Attributes\Delete;
+use Diana\Router\Attributes\Get;
+use Diana\Router\Attributes\Patch;
+use Diana\Router\Attributes\Post;
+use Diana\Router\Attributes\Put;
 
 class AllMethodsController
 {

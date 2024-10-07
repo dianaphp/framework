@@ -3,9 +3,8 @@
 namespace Diana\Controllers;
 
 use Diana\IO\Response;
-use Diana\Routing\Attributes\Command;
+use Diana\Router\Attributes\Command;
 use Diana\Runtime\Application;
-use Diana\Support\Helpers\Filesystem;
 
 class StubCommandsController
 {

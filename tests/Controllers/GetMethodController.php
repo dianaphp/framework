@@ -2,12 +2,8 @@
 
 namespace Diana\Tests\Controllers;
 
-use Diana\Routing\Attributes\Delete;
-use Diana\Routing\Attributes\Get;
-use Diana\Routing\Attributes\Middleware;
-use Diana\Routing\Attributes\Patch;
-use Diana\Routing\Attributes\Post;
-use Diana\Routing\Attributes\Put;
+use Diana\Router\Attributes\Get;
+use Diana\Router\Attributes\Middleware;
 use Diana\Tests\Middleware\MockMiddleware;
 
 class GetMethodController

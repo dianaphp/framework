@@ -2,9 +2,9 @@
 
 namespace Diana\Proxies;
 
-class NullProxy extends Proxy implements IProxy
+class NullProxy implements ProxyInterface
 {
-    public function __call($method, $args)
+    public function __call(string $method, array $arguments)
     {
     }
 

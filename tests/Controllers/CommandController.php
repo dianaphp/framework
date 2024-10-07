@@ -2,8 +2,8 @@
 
 namespace Diana\Tests\Controllers;
 
-use Diana\Routing\Attributes\Command;
-use Diana\Routing\Attributes\Middleware;
+use Diana\Router\Attributes\Command;
+use Diana\Router\Attributes\Middleware;
 use Diana\Tests\Middleware\MockMiddleware;
 
 class CommandController

@@ -2,13 +2,13 @@
 
 namespace Diana\Controllers;
 
-use Diana\Routing\Attributes\Command;
-use Diana\Support\Helpers\Filesystem;
+use Diana\Router\Attributes\Command;
+use Diana\Runtime\Application;
 
 class CoreCommandsController
 {
     #[Command("cache-clear")]
-    public function cacheClear()
+    public function cacheClear(Application $app)
     {
         // TODO: Outsource
         $scandel = function (string $dir) use (&$scandel) {
@@ -18,8 +18,9 @@ class CoreCommandsController
                 if (is_dir($file)) {
                     $scandel($file);
                     $dirs[] = $file;
-                } else
+                } else {
                     unlink($file);
+                }
             }
 
             foreach ($dirs as $dir) {
@@ -27,7 +28,7 @@ class CoreCommandsController
             }
         };
 
-        $scandel(Filesystem::absPath('./tmp'));
+        $scandel($app->path('tmp'));
 
         return 'Cache has been cleared.';
     }

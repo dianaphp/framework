@@ -2,7 +2,9 @@
 
 namespace Diana\IO;
 
-abstract class Request
+use Diana\Drivers\Routing\RequestInterface;
+
+abstract class Request implements RequestInterface
 {
     public function __construct(protected string $resource)
     {
@@ -18,8 +20,9 @@ abstract class Request
         } else {
             $headers = [];
             foreach ($_SERVER as $key => $value) {
-                if (substr($key, 0, 5) <> 'HTTP_')
+                if (!str_starts_with($key, 'HTTP_')) {
                     continue;
+                }
 
                 $header = str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))));
                 $headers[$header] = $value;
