@@ -6,6 +6,8 @@ use Closure;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\Support\Helpers\Arr;
 use Illuminate\Container\Container;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
 class Pipeline
 {
@@ -48,6 +50,10 @@ class Pipeline
 
     public function pipe(Closure|array|string $pipes = []): static
     {
+        /**
+         * @throws ContainerExceptionInterface
+         * @throws NotFoundExceptionInterface
+         */
         $next = function () use (&$next, &$pipes) {
             $current = array_shift($pipes);
 
