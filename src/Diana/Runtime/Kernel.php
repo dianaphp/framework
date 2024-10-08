@@ -5,6 +5,7 @@ namespace Diana\Runtime;
 use Closure;
 use Diana\Controllers\CoreCommandsController;
 use Diana\Controllers\StubCommandsController;
+use Diana\Drivers\ContainerInterface;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Pipeline;
 use Diana\IO\Request;
@@ -20,8 +21,6 @@ use Diana\Runtime\Attributes\Config;
 use Diana\Drivers\ConfigInterface;
 use Diana\Drivers\Routing\RouteInterface;
 use Diana\Drivers\Routing\RouterInterface;
-use Illuminate\Container\Container;
-use Illuminate\Contracts\Container\BindingResolutionException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -56,7 +55,7 @@ class Kernel extends Package
      * @throws FileNotFoundException
      */
     public function __construct(
-        protected Container $container,
+        protected ContainerInterface $container,
         protected Application $app,
         #[Config('framework')] protected ConfigInterface $config
     ) {
@@ -96,7 +95,6 @@ class Kernel extends Package
      * @throws NotFoundExceptionInterface
      * @throws UnexpectedOutputTypeException
      * @throws ContainerExceptionInterface
-     * @throws BindingResolutionException
      */
     public function handleRequest(Request $request): Response
     {

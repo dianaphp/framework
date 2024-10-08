@@ -2,9 +2,7 @@
 
 namespace Diana\Runtime;
 
-use Illuminate\Container\Container;
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
+use Diana\Drivers\ContainerInterface;
 use RuntimeException;
 
 abstract class Package
@@ -12,14 +10,18 @@ abstract class Package
     protected bool $booted = false;
     protected string $path;
 
-    public function boot(Container $container = new Container()): void
+    public function boot(?ContainerInterface $container): void
     {
         if ($this->hasBooted()) {
             throw new RuntimeException('The runtime [' . get_class($this) . '] has already been booted.');
         }
 
         if (method_exists($this, 'init')) {
-            $container->call([$this, 'init']);
+            if ($container) {
+                $container->call([$this, 'init']);
+            } else {
+                $this->init();
+            }
         }
 
         $this->booted = true;

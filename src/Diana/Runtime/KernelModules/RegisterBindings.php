@@ -3,14 +3,14 @@
 namespace Diana\Runtime\KernelModules;
 
 use Diana\Drivers\ConfigInterface;
+use Diana\Drivers\ContainerInterface;
 use Diana\Runtime\Application;
-use Illuminate\Container\Container;
 
 class RegisterBindings implements KernelModule
 {
     public function __construct(
         protected Application $app,
-        protected Container $container,
+        protected ContainerInterface $container,
         protected ConfigInterface $config
     ) {
     }

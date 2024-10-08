@@ -3,9 +3,9 @@
 namespace Diana\IO;
 
 use Closure;
+use Diana\Drivers\ContainerInterface;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\Support\Helpers\Arr;
-use Illuminate\Container\Container;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -16,7 +16,7 @@ class Pipeline
 
     protected mixed $data = null;
 
-    public function __construct(protected Container $container)
+    public function __construct(protected ContainerInterface $container)
     {
     }
 

@@ -3,6 +3,7 @@
 namespace Diana\Runtime\Attributes;
 
 use Attribute;
+use Diana\Drivers\ContainerInterface;
 use Diana\Drivers\EventInterface;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;

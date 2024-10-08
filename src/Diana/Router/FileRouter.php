@@ -2,6 +2,7 @@
 
 namespace Diana\Router;
 
+use Diana\Drivers\ContainerInterface;
 use Diana\Drivers\Routing\RequestInterface;
 use Diana\IO\ConsoleRequest;
 use Diana\IO\HttpRequest;
@@ -24,7 +25,6 @@ use Diana\Runtime\Attributes\Config;
 use Diana\Drivers\ConfigInterface;
 use Diana\Drivers\Routing\RouteInterface;
 use Diana\Drivers\Routing\RouterInterface;
-use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Psr\Container\ContainerExceptionInterface;
 use ReflectionAttribute;
@@ -52,7 +52,7 @@ class FileRouter implements RouterInterface
 
     public function __construct(
         #[Config('framework')] protected ConfigInterface $config,
-        protected Container $container,
+        protected ContainerInterface $container,
         protected Application $app,
     ) {
         $config->setDefault(['routeCachePath' => 'tmp/routes.php']);
