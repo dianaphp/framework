@@ -2,7 +2,7 @@
 
 namespace Diana\Router;
 
-use Diana\Drivers\Routing\RouteInterface;
+use Diana\Drivers\RouteInterface;
 
 class Route implements RouteInterface
 {

@@ -4,8 +4,8 @@ namespace Diana\Runtime\Attributes;
 
 use Attribute;
 use Diana\Drivers\ConfigInterface;
-use Diana\Drivers\ContainerInterface;
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\ContextualAttribute;
 
 #[Attribute(Attribute::TARGET_PARAMETER)]
@@ -26,6 +26,7 @@ class Config implements ContextualAttribute
      * @param self $attribute
      * @param Container $container
      * @return mixed
+     * @throws BindingResolutionException
      */
     public static function resolve(self $attribute, Container $container): mixed
     {

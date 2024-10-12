@@ -3,15 +3,15 @@
 namespace Diana\Runtime\KernelModules;
 
 use Diana\Drivers\ConfigInterface;
-use Diana\Runtime\Application;
+use Diana\Runtime\Framework;
 
 class ConfigurePhp implements KernelModule
 {
-    public function __construct(protected Application $app, protected ConfigInterface $config)
+    public function __construct(protected Framework $app, protected ConfigInterface $config)
     {
     }
 
-    public function init(): void
+    public function __invoke(): void
     {
         error_reporting(E_ALL);
 

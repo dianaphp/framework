@@ -4,5 +4,5 @@ namespace Diana\Runtime\KernelModules;
 
 interface KernelModule
 {
-    public function init(): void;
+    public function __invoke(): void;
 }

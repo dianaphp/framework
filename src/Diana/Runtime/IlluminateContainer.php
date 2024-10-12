@@ -6,7 +6,7 @@ use Diana\Drivers\ContainerInterface;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
 
-readonly class ContainerProxy implements ContainerInterface
+readonly class IlluminateContainer implements ContainerInterface
 {
     protected Container $container;
 

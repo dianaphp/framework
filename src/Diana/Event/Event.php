@@ -3,22 +3,21 @@
 namespace Diana\Event;
 
 use Diana\Drivers\EventInterface;
+use Diana\Drivers\EventManagerInterface;
 
 class Event implements EventInterface
 {
-    protected array $listeners = [];
-
-    public function listen(string $action, callable $callback): void
+    public function __construct(protected string $class, protected EventManagerInterface $eventManager)
     {
-        $this->listeners[$action][] = $callback;
     }
 
-    public function fire(string $action, mixed $payload = null): void
+    public function fire(string $action, array $payload = []): void
     {
-        if (isset($this->listeners[$action])) {
-            foreach ($this->listeners[$action] as $listener) {
-                $listener($payload);
-            }
-        }
+        $this->eventManager->fire($this, $action, $payload);
+    }
+
+    public function getClass(): string
+    {
+        return $this->class;
     }
 }

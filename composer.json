@@ -29,9 +29,10 @@
         }
     ],
     "require": {
-        "php": ">=8.3.12",
+        "php": ">=8.3",
         "filp/whoops": "^2.15",
         "dianaphp/lib": "dev-main",
+        "dianaphp/sdk": "dev-main",
         "illuminate/container": "^12.0@dev"
     },
     "require-dev": {

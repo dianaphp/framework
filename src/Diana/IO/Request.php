@@ -2,7 +2,7 @@
 
 namespace Diana\IO;
 
-use Diana\Drivers\Routing\RequestInterface;
+use Diana\Drivers\RequestInterface;
 
 abstract class Request implements RequestInterface
 {

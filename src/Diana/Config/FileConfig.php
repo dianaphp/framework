@@ -2,7 +2,7 @@
 
 namespace Diana\Config;
 
-use Diana\Runtime\Application;
+use Diana\Runtime\Framework;
 use Diana\Support\Exceptions\FileNotFoundException;
 use Diana\Support\Helpers\Filesystem;
 use Diana\Support\Serializer\ArraySerializer;
@@ -17,7 +17,7 @@ class FileConfig implements ConfigInterface, ContextualAttribute
 
     protected array $default = [];
 
-    public function __construct(protected Application $app, protected string $name = 'app')
+    public function __construct(protected Framework $app, protected string $name = 'app')
     {
     }
 

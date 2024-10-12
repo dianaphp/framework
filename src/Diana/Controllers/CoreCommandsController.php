@@ -3,12 +3,12 @@
 namespace Diana\Controllers;
 
 use Diana\Router\Attributes\Command;
-use Diana\Runtime\Application;
+use Diana\Runtime\Framework;
 
 class CoreCommandsController
 {
     #[Command("cache-clear")]
-    public function cacheClear(Application $app)
+    public function cacheClear(Framework $app)
     {
         // TODO: Outsource
         $scandel = function (string $dir) use (&$scandel) {
