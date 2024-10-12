@@ -2,6 +2,7 @@
 
 namespace Diana\Runtime;
 
+use Closure;
 use Diana\Drivers\ContainerInterface;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
@@ -46,5 +47,10 @@ readonly class IlluminateContainer implements ContainerInterface
     public function has(string $abstract): bool
     {
         return $this->container->has($abstract);
+    }
+
+    public function addContextualBinding(string $class, string $abstract, Closure|string $concrete): void
+    {
+        $this->container->addContextualBinding($class, $abstract, $concrete);
     }
 }

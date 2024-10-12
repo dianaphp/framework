@@ -29,10 +29,11 @@ class Framework
 {
     protected string $frameworkPath;
 
+    protected ContainerInterface $container;
     protected ConfigInterface $config;
     protected EventManagerInterface $eventManager;
     protected EventInterface $event;
-    protected ContainerInterface $container;
+    protected RouterInterface $router;
 
     protected array $middleware = [];
 
@@ -46,6 +47,7 @@ class Framework
      */
     public function __construct(
         protected string $appPath,
+        protected string $configFolder,
         protected ClassLoader $loader,
         Closure|ConfigInterface $config
     ) {
@@ -56,7 +58,7 @@ class Framework
         $this->registerBindings();
         //$this->setupLogger();
         //$this->setupCache();
-        $this->setupEvents();
+        $this->setupDrivers();
         $this->runModules();
 
         $this->registerPackage($this->config->get('entryPoint'));
@@ -72,12 +74,14 @@ class Framework
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface
      */
-    protected function setupEvents(): void
+    protected function setupDrivers(): void
     {
         $this->eventManager = $this->container->get(EventManagerInterface::class);
         $this->event = $this->container->make(EventInterface::class, [
-            'class' => static::class
+            'class' => Framework::class
         ]);
+
+        $this->router = $this->container->get(RouterInterface::class);
     }
 
     protected function instantiateContainer(): void
@@ -111,7 +115,7 @@ class Framework
 
     public function registerPackage(string $package, bool $force = false): void
     {
-        if (!$force && isset($this->packages[$package])) {
+        if (!$force && $this->container->has($package)) {
             return;
         }
 
@@ -125,29 +129,26 @@ class Framework
     }
 
     /**
-     * Initiates the application lifecycle
      * @throws NotFoundExceptionInterface
-     * @throws UnexpectedOutputTypeException
      * @throws ContainerExceptionInterface
-     * @throws BindingResolutionException
+     * @throws UnexpectedOutputTypeException
      */
     public function boot(): void
     {
-        $status = null;
+        $this->event->fire('boot');
+
         $buffer = fopen($this->config->get('output'), 'a');
 
-        try {
-            $request = $this->container->get(RequestInterface::class);
-            $response = $this->handleRequest($request);
+        $request = $this->container->get(RequestInterface::class);
+        $response = $this->handleRequest($request);
 
-            fwrite($buffer, $response);
+        $status = $response->getStatusCode();
+        http_response_code($status);
 
-            $status = $response->getErrorCode();
-        } finally {
-            fclose($buffer);
+        fwrite($buffer, $response);
+        fclose($buffer);
 
-            $this->terminate($status);
-        }
+        $this->terminate($status);
     }
 
     /**
@@ -157,14 +158,12 @@ class Framework
      */
     public function handleRequest(Request $request): Response
     {
-        $router = $this->container->get(RouterInterface::class);
-
         try {
-            $route = $router->resolve($request);
+            $route = $this->router->resolve($request);
             $statusCode = $this->config->get('sapi') == 'cli' ? 0 : 200;
         } catch (RouteNotFoundException) {
             $statusCode = 404;
-            $route = $router->getErrorRoute();
+            $route = $this->router->getErrorRoute();
             if (!$route) {
                 // TODO: use the default renderer to render an http error
                 // RendererInterface::class => BlankRenderer::class
@@ -172,7 +171,7 @@ class Framework
             }
         } catch (CommandNotFoundException) {
             $statusCode = 1;
-            $route = $router->getErrorCommandRoute();
+            $route = $this->router->getErrorCommandRoute();
             if (!$route) {
                 return new Response("This command could not be found.", $statusCode);
             }
@@ -187,7 +186,10 @@ class Framework
                 return new Response(
                     $this->container->call(
                         $route->getController() . '@' . $route->getMethod(),
-                        $route->getParameters()
+                        [
+                            'statusCode' => $statusCode,
+                            ...$route->getParameters()
+                        ]
                     ),
                     $statusCode
                 );
@@ -238,14 +240,9 @@ class Framework
     protected function getDefaultConfig(): array
     {
         return [
-            'output' => 'php://stdout',
+            'output' => 'php://output',
             'sapi' => PHP_SAPI, // TODO: outsource to env.php
             'aliasCachePath' => 'tmp/aliases.php',
-            'packages' => [
-                CoreCommandsController::class,
-                StubCommandsController::class,
-                \App\AppController::class
-            ],
             'aliases' => [],
             'bindings' => [
                 \Diana\Drivers\ContainerInterface::class => \Diana\Runtime\IlluminateContainer::class,

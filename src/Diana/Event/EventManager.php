@@ -8,7 +8,6 @@ use Diana\Drivers\EventManagerInterface;
 use Diana\Drivers\EventListenerInterface;
 use Diana\Event\Attributes\EventListener as EventListenerAttribute;
 use Diana\Runtime\Framework;
-use PHPUnit\TextUI\Application;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
@@ -25,8 +24,8 @@ class EventManager implements EventManagerInterface
         protected ContainerInterface $container
     ) {
         // if(!cached) {
-        $this->registerEventListener(new EventListener(
-            class: Application::class,
+        $this->addEventListener(new EventListener(
+            class: Framework::class,
             action: 'registerPackage',
             callable: [$this, 'loadEventListeners'],
             before: ['*']
@@ -38,7 +37,7 @@ class EventManager implements EventManagerInterface
     /**
      * @throws ReflectionException
      */
-    public function loadEventListeners(object $package): void
+    public function loadEventListeners(string $package, object $instance): void
     {
         $reflectionClass = new ReflectionClass($package);
         foreach ($reflectionClass->getMethods() as $classMethod) {
@@ -54,17 +53,37 @@ class EventManager implements EventManagerInterface
 
                 $attributeArgs = $attribute->getArguments();
 
-                $this->registerEventListener(new EventListener(
+                $this->addEventListener(new EventListener(
                     ...$attributeArgs,
-                    callable: [$package, $classMethod->name]
+                    callable: [$instance, $classMethod->name]
                 ));
             }
         }
     }
 
-    public function registerEventListener(EventListenerInterface $eventListener): void
+    public function addEventListener(EventListenerInterface $eventListener): void
     {
         $this->events[$eventListener->getClass()][$eventListener->getAction()][] = $eventListener;
+    }
+
+    public function removeEventListener(EventListenerInterface $eventListener): void
+    {
+        $class = $eventListener->getClass();
+        $action = $eventListener->getAction();
+
+        if (!isset($this->events[$class])) {
+            return;
+        }
+
+        if (!isset($this->events[$class][$action])) {
+            return;
+        }
+
+        foreach ($this->events[$class][$action] as $key => $listener) {
+            if ($listener->getCallable() == $eventListener->getCallable()) {
+                unset($this->events[$class][$action][$key]);
+            }
+        }
     }
 
     public function fire(EventInterface $event, string $action, array $payload = []): void
@@ -84,8 +103,11 @@ class EventManager implements EventManagerInterface
 
         foreach ($this->events[$class][$action] as $listener) {
             $this->container->call($listener->getCallable(), [
-                EventInterface::class => $event,
-                ...$payload
+                ...$payload,
+
+                // TODO: i dont like this:
+                'event' => $event,
+                'eventListener' => $listener,
             ]);
         }
     }

@@ -16,7 +16,7 @@ class Config implements ContextualAttribute
     /**
      * Create a new attribute instance.
      */
-    public function __construct(protected string $name = 'app')
+    public function __construct(protected string $name = 'cfg/app')
     {
     }
 

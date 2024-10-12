@@ -3,6 +3,7 @@
 namespace Diana\Event;
 
 use Diana\Drivers\EventListenerInterface;
+use Diana\Drivers\EventManagerInterface;
 use Illuminate\Container\Container;
 
 class EventListener implements EventListenerInterface

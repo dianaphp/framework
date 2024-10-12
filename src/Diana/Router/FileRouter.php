@@ -26,6 +26,7 @@ use Diana\Runtime\Attributes\Config;
 use Diana\Drivers\ConfigInterface;
 use Diana\Drivers\RouteInterface;
 use Diana\Drivers\RouterInterface;
+use Diana\Support\Serializer\ArraySerializer;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use ReflectionAttribute;
 use ReflectionClass;
@@ -49,44 +50,54 @@ class FileRouter implements RouterInterface
      * @throws FileNotFoundException
      */
     public function __construct(
-        #[Config('framework')] protected ConfigInterface $config,
+        #[Config('cfg/framework')] protected ConfigInterface $config,
         protected ContainerInterface $container,
         protected Framework $app,
         protected EventManagerInterface $eventManager
     ) {
         $config->setDefault(['routeCachePath' => 'tmp/routes.php']);
 
+
+        // ensureCache
         $cachePath = $this->app->path($this->config->get('routeCachePath'));
         if (file_exists($cachePath)) {
             $routes = Filesystem::getRequire($cachePath);
             $this->routes = $this->unserializeRoutes($routes['routes']);
             $this->commands = $this->unserializeCommands($routes['commands']);
         } else {
-            $this->eventManager->registerEventListener(new EventListener(
+            $this->eventManager->addEventListener(new EventListener(
                 class: Framework::class,
                 action: 'registerPackage',
                 callable: [$this, 'loadRoutes'],
                 before: ['*']
             ));
 
-            // TODO: register another one after all packages are registered to cache the routes?? uncool!
-//            if ($cache) {
-//                file_put_contents(
-//                    $cachePath,
-//                    ArraySerializer::serialize([
-//                        "routes" => $this->serializeRoutes($this->routes),
-//                        "commands" => $this->serializeCommands($this->commands)
-//                    ])
-//                );
-//            }
+            $this->eventManager->addEventListener(new EventListener(
+                class: Framework::class,
+                action: 'boot',
+                callable: [$this, 'cacheRoutes']
+            ));
         }
+    }
+
+    public function cacheRoutes(EventListener $eventListener): void
+    {
+        $this->eventManager->removeEventListener($eventListener);
+        $cachePath = $this->app->path($this->config->get('routeCachePath'));
+        file_put_contents(
+            $cachePath,
+            ArraySerializer::serialize([
+                "routes" => $this->serializeRoutes($this->routes),
+                "commands" => $this->serializeCommands($this->commands)
+            ])
+        );
     }
 
     /**
      * @throws ReflectionException
      * @throws DuplicateRouteException|MissingArgumentsException
      */
-    public function loadRoutes(object $package): void
+    public function loadRoutes(string $package): void
     {
         $reflectionClass = new ReflectionClass($package);
         foreach ($reflectionClass->getMethods() as $classMethod) {
@@ -177,10 +188,10 @@ class FileRouter implements RouterInterface
 
         if (array_key_exists($path, $this->routes[$attributeMethod])) {
             throw new DuplicateRouteException(
-                'Route [' . $route['controller'] . '@' . $route['method'] . '] tried to assign the path [' .
+                'Route [' . $route->getController() . '@' . $route->getMethod() . '] tried to assign the path [' .
                 $path . '] that has already been assigned to [' .
-                $this->routes[$attributeMethod][$path]['controller'] .
-                '@' . $this->routes[$attributeMethod][$path]['method'] . ']'
+                $this->routes[$attributeMethod][$path]->getController() .
+                '@' . $this->routes[$attributeMethod][$path]->getMethod() . ']'
             );
         }
 

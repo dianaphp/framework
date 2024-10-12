@@ -9,15 +9,15 @@ class Response
 {
     use Headers;
 
-    public function __construct(protected mixed $response = "", protected int $errorCode = 200, array $headers = [])
+    public function __construct(protected mixed $response = "", protected int $statusCode = 200, array $headers = [])
     {
         $this->headers = $headers;
-        http_response_code($this->errorCode);
     }
 
-    public function setErrorCode(int $errorCode): void
+    public function setStatusCode(int $statusCode): static
     {
-        http_response_code($this->errorCode = $errorCode);
+        $this->statusCode = $statusCode;
+        return $this;
     }
 
     public function __toString(): string
@@ -29,8 +29,8 @@ class Response
         };
     }
 
-    public function getErrorCode()
+    public function getStatusCode(): int
     {
-        return $this->errorCode;
+        return $this->statusCode;
     }
 }
