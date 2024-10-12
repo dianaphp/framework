@@ -20,6 +20,9 @@ use Diana\IO\Response;
 use Diana\Drivers\ConfigInterface;
 use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\RouteNotFoundException;
+use Diana\Runtime\KernelModules\ConfigurePhp;
+use Diana\Runtime\KernelModules\ProvideAliases;
+use Diana\Runtime\KernelModules\RegisterExceptionHandler;
 use Diana\Support\Helpers\Data;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Psr\Container\ContainerExceptionInterface;
@@ -37,9 +40,11 @@ class Framework
 
     protected array $middleware = [];
 
-    protected array $modules = [];
-
-    protected array $packages;
+    protected array $modules = [
+        RegisterExceptionHandler::class,
+        ConfigurePhp::class,
+        ProvideAliases::class
+    ];
 
     /**
      * @throws ContainerExceptionInterface
@@ -67,7 +72,7 @@ class Framework
     protected function loadConfig(Closure|ConfigInterface $config): void
     {
         $this->config = Data::valueOf($config, $this);
-        $this->config->setDefault($this->getDefaultConfig());
+        $this->config->addDefault($this->getDefaultConfig());
     }
 
     /**

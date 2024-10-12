@@ -3,12 +3,15 @@
 namespace Diana\Runtime\KernelModules;
 
 use Diana\Drivers\ConfigInterface;
+use Diana\Runtime\Attributes\Config;
 use Diana\Runtime\Framework;
 
 class ConfigurePhp implements KernelModule
 {
-    public function __construct(protected Framework $app, protected ConfigInterface $config)
-    {
+    public function __construct(
+        protected Framework $app,
+        #[Config('cfg/framework')] protected ConfigInterface $config
+    ) {
     }
 
     public function __invoke(): void

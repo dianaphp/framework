@@ -42,7 +42,7 @@ class FileConfig implements ConfigInterface, ContextualAttribute
      */
     public function get(?string $key = null): mixed
     {
-        $this->enforceIntegrity($this->default);
+        $this->enforceIntegrity();
 
         return $key ? $this->config[$key] : $this->config;
     }
@@ -50,17 +50,22 @@ class FileConfig implements ConfigInterface, ContextualAttribute
     /**
      * @throws FileNotFoundException
      */
-    public function setDefault(array $default): self
+    public function addDefault(array $default): self
     {
-        $this->default = $default;
-        $this->enforceIntegrity($this->default);
+        $this->default = $this->arrayMergeRecursiveDistinct($this->default, $default);
+        $this->enforceIntegrity();
         return $this;
+    }
+
+    public function getDefault(?string $key = null): array
+    {
+        return $key ? $this->default[$key] : $this->default;
     }
 
     /**
      * @throws FileNotFoundException
      */
-    protected function enforceIntegrity(array $default): void
+    protected function enforceIntegrity(): void
     {
         if (!isset($this->config)) {
             if (file_exists($this->path)) {
@@ -70,7 +75,7 @@ class FileConfig implements ConfigInterface, ContextualAttribute
             }
         }
 
-        $config = $this->arrayMergeRecursiveDistinct($default, $this->config);
+        $config = $this->arrayMergeRecursiveDistinct($this->default, $this->config);
 
         if ($this->config != $config) {
             file_put_contents($this->path, ArraySerializer::serialize($config));

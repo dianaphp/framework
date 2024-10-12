@@ -10,14 +10,14 @@ use Whoops\Run;
 
 class RegisterExceptionHandler implements KernelModule
 {
-    public function __construct(protected Framework $app, protected ConfigInterface $config)
+    public function __construct()
     {
     }
 
     public function __invoke(): void
     {
         (new Run())
-            ->pushHandler($this->app->getSapi() == 'cli' ? new PlainTextHandler() : new PrettyPageHandler())
+            ->pushHandler(php_sapi_name() == 'cli' ? new PlainTextHandler() : new PrettyPageHandler())
             ->register();
     }
 }

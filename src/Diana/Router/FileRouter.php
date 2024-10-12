@@ -55,8 +55,7 @@ class FileRouter implements RouterInterface
         protected Framework $app,
         protected EventManagerInterface $eventManager
     ) {
-        $config->setDefault(['routeCachePath' => 'tmp/routes.php']);
-
+        $config->addDefault(['routeCachePath' => 'tmp/routes.php']);
 
         // ensureCache
         $cachePath = $this->app->path($this->config->get('routeCachePath'));
