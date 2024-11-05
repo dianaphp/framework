@@ -3,7 +3,7 @@
 namespace Diana\Runtime\Attributes;
 
 use Attribute;
-use Diana\Drivers\ConfigInterface;
+use Diana\Contracts\ConfigContract;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\ContextualAttribute;
@@ -31,7 +31,7 @@ class Config implements ContextualAttribute
     public static function resolve(self $attribute, Container $container): mixed
     {
         if (!isset(self::$configs[$attribute->name])) {
-            self::$configs[$attribute->name] = $container->make(ConfigInterface::class, ['name' => $attribute->name]);
+            self::$configs[$attribute->name] = $container->make(ConfigContract::class, ['name' => $attribute->name]);
         }
 
         return self::$configs[$attribute->name];

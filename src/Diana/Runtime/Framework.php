@@ -6,18 +6,21 @@ use Closure;
 use Composer\Autoload\ClassLoader;
 use Diana\Controllers\CoreCommandsController;
 use Diana\Controllers\StubCommandsController;
-use Diana\Drivers\ContainerInterface;
-use Diana\Drivers\EventInterface;
-use Diana\Drivers\EventManagerInterface;
-use Diana\Drivers\RequestInterface;
-use Diana\Drivers\RouteInterface;
-use Diana\Drivers\RouterInterface;
+use Diana\Contracts\ContainerContract;
+use Diana\Event\EventInterface;
+use Diana\Contracts\EventManagerContract;
+use Diana\Contracts\RequestContract;
+use Diana\Contracts\RouteContract;
+use Diana\Contracts\RouterContract;
+use Diana\Events\BootEvent;
+use Diana\Events\RegisterPackageEvent;
 use Diana\IO\ConsoleRequest;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Pipeline;
 use Diana\IO\Request;
 use Diana\IO\Response;
-use Diana\Drivers\ConfigInterface;
+use Diana\Contracts\ConfigContract;
+use Diana\Proxies\ProxyInterface;
 use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\RouteNotFoundException;
 use Diana\Runtime\KernelModules\ConfigurePhp;
@@ -27,16 +30,17 @@ use Diana\Support\Helpers\Data;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
+use ReflectionClass;
+use ReflectionException;
 
 class Framework
 {
     protected string $frameworkPath;
 
-    protected ContainerInterface $container;
-    protected ConfigInterface $config;
-    protected EventManagerInterface $eventManager;
-    protected EventInterface $event;
-    protected RouterInterface $router;
+    protected ContainerContract $container;
+    protected ConfigContract $config;
+    protected EventManagerContract $eventManager;
+    protected RouterContract $router;
 
     protected array $middleware = [];
 
@@ -49,12 +53,13 @@ class Framework
     /**
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface
+     * @throws ReflectionException
      */
     public function __construct(
         protected string $appPath,
         protected string $configFolder,
         protected ClassLoader $loader,
-        Closure|ConfigInterface $config
+        Closure|ConfigContract $config
     ) {
         $this->frameworkPath = dirname(__DIR__, 3);
 
@@ -69,7 +74,7 @@ class Framework
         $this->registerPackage($this->config->get('entryPoint'));
     }
 
-    protected function loadConfig(Closure|ConfigInterface $config): void
+    protected function loadConfig(Closure|ConfigContract $config): void
     {
         $this->config = Data::valueOf($config, $this);
         $this->config->addDefault($this->getDefaultConfig());
@@ -81,34 +86,46 @@ class Framework
      */
     protected function setupDrivers(): void
     {
-        $this->eventManager = $this->container->get(EventManagerInterface::class);
-        $this->event = $this->container->make(EventInterface::class, [
-            'class' => Framework::class
-        ]);
-
-        $this->router = $this->container->get(RouterInterface::class);
+        $this->eventManager = $this->container->get(EventManagerContract::class);
+        $this->router = $this->container->get(RouterContract::class);
     }
 
     protected function instantiateContainer(): void
     {
         $bindings = $this->config->get('bindings');
-        $containerClass = $bindings[ContainerInterface::class];
+        $containerClass = $bindings[ContainerContract::class];
         $this->container = new $containerClass();
     }
 
+    /**
+     * @throws ReflectionException
+     */
     protected function registerBindings(): void
     {
         // it is crucial to register the user defined bindings first, as they might override core bindings
         foreach ($this->config->get('bindings') as $abstract => $concrete) {
+            // TODO: binding resolving as event? or pipeline?
+            // TODO: outsource to another class?
+//            if (is_a($concrete, ProxyInterface::class, true)) {
+//                $reflectConcrete = new ReflectionClass($concrete);
+//                $className = $reflectConcrete->getShortName() . 'Proxy';
+//                if (!class_exists($className . 'Proxy')) {
+//                    if (class_exists($abstract)) {
+//                        $reflectAbstract = new ReflectionClass($abstract);
+//                        $implementation = $reflectAbstract->isInterface() ? 'implements' : 'extends';
+//                        eval('class ' . $className . ' ' . $implementation . ' ' . $abstract . ' {}');
+//                    }
+//                }
+//            }
             $this->container->singleton($abstract, $concrete);
         }
 
-        $this->container->instance(ContainerInterface::class, $this->container);
+        $this->container->instance(ContainerContract::class, $this->container);
         $this->container->instance(Framework::class, $this);
         $this->container->instance(ClassLoader::class, $this->loader);
 
         // TODO: contextual binding based on $sapi, check capture method
-        $this->container->instance(RequestInterface::class, Request::capture());
+        $this->container->instance(RequestContract::class, Request::capture());
     }
 
     public function runModules(): void
@@ -127,10 +144,7 @@ class Framework
         $instance = $this->container->make($package);
         $this->container->instance($package, $instance);
 
-        $this->event->fire(
-            'registerPackage',
-            compact('package', 'instance')
-        );
+        $this->eventManager->fire(new RegisterPackageEvent($instance, $force));
     }
 
     /**
@@ -140,11 +154,11 @@ class Framework
      */
     public function boot(): void
     {
-        $this->event->fire('boot');
+        $this->eventManager->fire(new BootEvent());
 
         $buffer = fopen($this->config->get('output'), 'a');
 
-        $request = $this->container->get(RequestInterface::class);
+        $request = $this->container->get(RequestContract::class);
         $response = $this->handleRequest($request);
 
         $status = $response->getStatusCode();
@@ -157,8 +171,6 @@ class Framework
     }
 
     /**
-     * @throws NotFoundExceptionInterface
-     * @throws ContainerExceptionInterface
      * @throws UnexpectedOutputTypeException
      */
     public function handleRequest(Request $request): Response
@@ -182,7 +194,7 @@ class Framework
             }
         }
 
-        $this->container->instance(RouteInterface::class, $route);
+        $this->container->instance(RouteContract::class, $route);
 
         return $this->container->make(Pipeline::class)
             ->pipe($this->middleware) // global middleware
@@ -203,10 +215,7 @@ class Framework
     }
 
     /**
-     * @throws NotFoundExceptionInterface
-     * @throws ContainerExceptionInterface
      * @throws UnexpectedOutputTypeException
-     * @throws BindingResolutionException
      */
     public function runCommand(string $command): Response
     {
@@ -250,13 +259,13 @@ class Framework
             'aliasCachePath' => 'tmp/aliases.php',
             'aliases' => [],
             'bindings' => [
-                \Diana\Drivers\ContainerInterface::class => \Diana\Runtime\IlluminateContainer::class,
-                \Diana\Drivers\ConfigInterface::class => \Diana\Config\FileConfig::class,
-                \Diana\Drivers\EventInterface::class => \Diana\Event\Event::class,
-                \Diana\Drivers\RouterInterface::class => \Diana\Router\FileRouter::class,
-                \Diana\Drivers\RouteInterface::class => \Diana\Router\Route::class,
-                \Diana\Drivers\RendererInterface::class => \Diana\Rendering\Drivers\BladeRenderer::class,
-                \Diana\Drivers\EventManagerInterface::class => \Diana\Event\EventManager::class
+                \Diana\Contracts\ContainerContract::class => \Diana\Runtime\IlluminateContainer::class,
+                \Diana\Contracts\ConfigContract::class => \Diana\Config\FileConfig::class,
+                \Diana\Contracts\EventListenerContract::class => \Diana\Event\EventListener::class,
+                \Diana\Contracts\RouterContract::class => \Diana\Router\FileRouter::class,
+                \Diana\Contracts\RouteContract::class => \Diana\Router\Route::class,
+                \Diana\Contracts\RendererContract::class => \Diana\Rendering\Drivers\BladeRenderer::class,
+                \Diana\Contracts\EventManagerContract::class => \Diana\Event\EventManager::class
             ],
             'entryPoint' => '\App\AppModule',
             'env' => 'dev',

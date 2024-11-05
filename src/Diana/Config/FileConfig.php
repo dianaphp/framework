@@ -6,10 +6,10 @@ use Diana\Runtime\Framework;
 use Diana\Support\Exceptions\FileNotFoundException;
 use Diana\Support\Helpers\Filesystem;
 use Diana\Support\Serializer\ArraySerializer;
-use Diana\Drivers\ConfigInterface;
+use Diana\Contracts\ConfigContract;
 use Illuminate\Contracts\Container\ContextualAttribute;
 
-class FileConfig implements ConfigInterface, ContextualAttribute
+class FileConfig implements ConfigContract, ContextualAttribute
 {
     protected string $path;
 

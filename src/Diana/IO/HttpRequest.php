@@ -26,13 +26,17 @@ class HttpRequest extends Request
                 $this->host = substr($url, 0, $pos);
                 $url = substr($url, $pos);
             }
-        } else
-            if (isset($_SERVER["SERVER_PROTOCOL"]))
+        } else {
+            if (isset($_SERVER["SERVER_PROTOCOL"])) {
                 $this->protocol = strtolower(strtok($_SERVER["SERVER_PROTOCOL"], "/"));
+            }
+        }
 
-        if (!$this->host)
-            if (isset($_SERVER["HTTP_HOST"]))
+        if (!$this->host) {
+            if (isset($_SERVER["HTTP_HOST"])) {
                 $this->host = $_SERVER["HTTP_HOST"];
+            }
+        }
 
         if (($pos = strpos($url, "?")) !== false) {
             $this->query = substr($url, $pos + 1);
@@ -42,14 +46,17 @@ class HttpRequest extends Request
             }
 
             $url = substr($url, 0, $pos);
-        } else
+        } else {
             $this->query = '';
+        }
 
         $this->route = $url ?: $_SERVER["REQUEST_URI"];
 
         $this->headers = $headers;
 
-        parent::__construct($this->protocol . "://" . $this->host . $this->route . ($this->query ? "?" . $this->query : ""));
+        parent::__construct(
+            $this->protocol . "://" . $this->host . $this->route . ($this->query ? "?" . $this->query : "")
+        );
     }
 
     public function getProtocol(): string

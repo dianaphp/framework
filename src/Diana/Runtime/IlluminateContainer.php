@@ -3,11 +3,11 @@
 namespace Diana\Runtime;
 
 use Closure;
-use Diana\Drivers\ContainerInterface;
+use Diana\Contracts\ContainerContract;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
 
-readonly class IlluminateContainer implements ContainerInterface
+readonly class IlluminateContainer implements ContainerContract
 {
     protected Container $container;
 

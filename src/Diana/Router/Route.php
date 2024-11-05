@@ -2,9 +2,9 @@
 
 namespace Diana\Router;
 
-use Diana\Drivers\RouteInterface;
+use Diana\Contracts\RouteContract;
 
-class Route implements RouteInterface
+class Route implements RouteContract
 {
     public function __construct(
         protected string $controller,

@@ -2,34 +2,35 @@
 
 namespace Diana\Event;
 
-use Diana\Drivers\ContainerInterface;
-use Diana\Drivers\EventInterface;
-use Diana\Drivers\EventManagerInterface;
-use Diana\Drivers\EventListenerInterface;
+use Diana\Contracts\ContainerContract;
+use Diana\Event\EventInterface;
+use Diana\Contracts\EventManagerContract;
+use Diana\Contracts\EventListenerContract;
 use Diana\Event\Attributes\EventListener as EventListenerAttribute;
+use Diana\Events\BootEvent;
+use Diana\Events\RegisterPackageEvent;
 use Diana\Runtime\Framework;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
 
-class EventManager implements EventManagerInterface
+class EventManager implements EventManagerContract
 {
     /**
-     * @var EventListenerInterface[][][] $events
+     * @var EventListenerContract[][] $eventListeners
      */
-    protected array $events = [];
+    protected array $eventListeners = [];
 
     public function __construct(
         protected Framework $app,
-        protected ContainerInterface $container
+        protected ContainerContract $container
     ) {
         // if(!cached) {
-        $this->addEventListener(new EventListener(
-            class: Framework::class,
-            action: 'registerPackage',
-            callable: [$this, 'loadEventListeners'],
+        $this->addNewEventListener(
+            RegisterPackageEvent::class,
+            [$this, 'loadEventListeners'],
             before: ['*']
-        ));
+        );
         // $this->cacheEventListeners();
         // }
     }
@@ -37,8 +38,9 @@ class EventManager implements EventManagerInterface
     /**
      * @throws ReflectionException
      */
-    public function loadEventListeners(string $package, object $instance): void
+    public function loadEventListeners(RegisterPackageEvent $event): void
     {
+        $package = $event->getPackage();
         $reflectionClass = new ReflectionClass($package);
         foreach ($reflectionClass->getMethods() as $classMethod) {
             $reflectionMethod = new ReflectionMethod($package, $classMethod->name);
@@ -53,77 +55,106 @@ class EventManager implements EventManagerInterface
 
                 $attributeArgs = $attribute->getArguments();
 
-                $this->addEventListener(new EventListener(
-                    ...$attributeArgs,
-                    callable: [$instance, $classMethod->name]
+                $event = $attributeArgs['event'] ?? array_shift($attributeArgs);
+                $before = $attributeArgs['before'] ?? array_shift($attributeArgs) ?: [];
+                $after = $attributeArgs['after'] ?? array_shift($attributeArgs) ?: [];
+                $callable = [$package, $classMethod->name];
+
+                $this->addEventListener($this->container->make(
+                    EventListenerContract::class,
+                    compact('event', 'callable', 'before', 'after')
                 ));
             }
         }
     }
 
-    public function addEventListener(EventListenerInterface $eventListener): void
-    {
-        $this->events[$eventListener->getClass()][$eventListener->getAction()][] = $eventListener;
+    public function createEventListener(
+        string $event,
+        array|string $callable,
+        array $before = [],
+        array $after = []
+    ): EventListenerContract {
+        return $this->container->make(
+            EventListenerContract::class,
+            compact('event', 'callable', 'before', 'after')
+        );
     }
 
-    public function removeEventListener(EventListenerInterface $eventListener): void
+    public function addNewEventListener(
+        string $event,
+        array|string $callable,
+        array $before = [],
+        array $after = []
+    ): EventListenerContract {
+        $eventListener = $this->createEventListener($event, $callable, $before, $after);
+        $this->addEventListener($eventListener);
+        return $eventListener;
+    }
+
+    public function addNewSingleEventListener(
+        string $event,
+        array|string $callable,
+        array $before = [],
+        array $after = []
+    ): EventListenerContract {
+        $eventListener = $this->createEventListener($event, $callable, $before, $after);
+        $this->addSingleEventListener($eventListener);
+        return $eventListener;
+    }
+
+    public function addEventListener(EventListenerContract $eventListener): void
     {
-        $class = $eventListener->getClass();
-        $action = $eventListener->getAction();
+        $this->eventListeners[$eventListener->getEvent()][] = $eventListener;
+    }
 
-        if (!isset($this->events[$class])) {
-            return;
-        }
+    public function addSingleEventListener(EventListenerContract $eventListener): void
+    {
+        $eventListener->setCallable(function () use ($eventListener) {
+            $this->removeEventListener($eventListener);
+            $eventListener->getCallable()(...func_get_args());
+        });
+        $this->addEventListener($eventListener);
+    }
 
-        if (!isset($this->events[$class][$action])) {
-            return;
-        }
+    public function removeEventListener(EventListenerContract $eventListener): void
+    {
+        $event = $eventListener->getEvent();
 
-        foreach ($this->events[$class][$action] as $key => $listener) {
+        foreach ($this->eventListeners[$event] ?? [] as $key => $listener) {
             if ($listener->getCallable() == $eventListener->getCallable()) {
-                unset($this->events[$class][$action][$key]);
+                unset($this->eventListeners[$event][$key]);
             }
         }
     }
 
-    public function fire(EventInterface $event, string $action, array $payload = []): void
+    public function fire(EventInterface $event): void
     {
-        $class = $event->getClass();
-
-        if (!isset($this->events[$class])) {
-            return;
-        }
-
-        if (!isset($this->events[$class][$action])) {
-            return;
-        }
+        $class = get_class($event);
 
         // sort
-        $this->sortListeners($class, $action);
+        $this->sortListeners($class);
 
-        foreach ($this->events[$class][$action] as $listener) {
+        foreach ($this->eventListeners[$class] ?? [] as $listener) {
             $this->container->call($listener->getCallable(), [
-                ...$payload,
-
-                // TODO: i dont like this:
-                'event' => $event,
-                'eventListener' => $listener,
+                $class => $event,
+                EventInterface::class => $event,
+                EventListenerContract::class => $listener,
             ]);
         }
     }
 
-    protected function sortListeners(string $class, string $action): void
+    protected function sortListeners(string $class): void
     {
-//        $sorted = [];
-//        while (true) {
-//            foreach($this->events[$class][$action] as $listener) {
-//                $afterClasses = $listener->getAfter();
-//                foreach ($afterClasses as $afterClass) {
-//                    if (!in_array($afterClass, $sorted)) {
-//                        continue 2;
-//                    }
-//                }
-//            }
-//        }
+        //        $sorted = [];
+        //        while (true) {
+        //            foreach($this->events[$class][$action] as $listener) {
+        //                $afterClasses = $listener->getAfter();
+        //                foreach ($afterClasses as $afterClass) {
+        //                    if (!in_array($afterClass, $sorted)) {
+        //                        continue 2;
+        //                    }
+        //                }
+        //            }
+        //        }
     }
 }

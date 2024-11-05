@@ -3,7 +3,7 @@
 namespace Diana\IO;
 
 use Closure;
-use Diana\Drivers\ContainerInterface;
+use Diana\Contracts\ContainerContract;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\Support\Helpers\Arr;
 use Psr\Container\ContainerExceptionInterface;
@@ -16,7 +16,7 @@ class Pipeline
 
     protected mixed $data = null;
 
-    public function __construct(protected ContainerInterface $container)
+    public function __construct(protected ContainerContract $container)
     {
     }
 

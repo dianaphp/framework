@@ -2,7 +2,7 @@
 
 namespace Diana\Proxies;
 
-use Diana\Drivers\ContainerInterface;
+use Diana\Contracts\ContainerContract;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -14,7 +14,7 @@ class Proxy implements ProxyInterface
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface
      */
-    public function __construct(protected ContainerInterface $container, protected string $class)
+    public function __construct(protected ContainerContract $container, protected string $class)
     {
         $this->instance = $container->get($class);
     }

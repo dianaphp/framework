@@ -2,15 +2,12 @@
 
 namespace Diana\Event;
 
-use Diana\Drivers\EventListenerInterface;
-use Diana\Drivers\EventManagerInterface;
-use Illuminate\Container\Container;
+use Diana\Contracts\EventListenerContract;
 
-class EventListener implements EventListenerInterface
+class EventListener implements EventListenerContract
 {
     public function __construct(
-        protected string $class,
-        protected string $action,
+        protected string $event,
         protected array|string $callable,
         protected array $before = [],
         protected array $after = []
@@ -27,18 +24,18 @@ class EventListener implements EventListenerInterface
         return $this->after;
     }
 
-    public function getClass(): string
-    {
-        return $this->class;
-    }
-
-    public function getAction(): string
-    {
-        return $this->action;
-    }
-
     public function getCallable(): string|callable
     {
         return $this->callable;
+    }
+
+    public function setCallable(string|callable $callable): void
+    {
+        $this->callable = $callable;
+    }
+
+    public function getEvent(): string
+    {
+        return $this->event;
     }
 }

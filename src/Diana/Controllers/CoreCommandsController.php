@@ -8,7 +8,7 @@ use Diana\Runtime\Framework;
 class CoreCommandsController
 {
     #[Command("cache-clear")]
-    public function cacheClear(Framework $app)
+    public function cacheClear(Framework $app): string
     {
         // TODO: Outsource
         $scandel = function (string $dir) use (&$scandel) {

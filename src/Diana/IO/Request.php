@@ -2,9 +2,9 @@
 
 namespace Diana\IO;
 
-use Diana\Drivers\RequestInterface;
+use Diana\Contracts\RequestContract;
 
-abstract class Request implements RequestInterface
+abstract class Request implements RequestContract
 {
     public function __construct(protected string $resource)
     {
@@ -38,7 +38,7 @@ abstract class Request implements RequestInterface
         }
     }
 
-    public function getResource()
+    public function getResource(): string
     {
         return $this->resource;
     }

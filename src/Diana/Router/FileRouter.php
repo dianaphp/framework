@@ -2,10 +2,10 @@
 
 namespace Diana\Router;
 
-use Diana\Drivers\ContainerInterface;
-use Diana\Drivers\EventManagerInterface;
-use Diana\Drivers\RequestInterface;
-use Diana\Event\EventListener;
+use Diana\Contracts\ContainerContract;
+use Diana\Contracts\EventManagerContract;
+use Diana\Contracts\RequestContract;
+use Diana\Events\BootEvent;
 use Diana\IO\ConsoleRequest;
 use Diana\IO\HttpRequest;
 use Diana\Router\Attributes\Command;
@@ -23,37 +23,36 @@ use Diana\Support\Exceptions\FileNotFoundException;
 use Diana\Support\Helpers\Filesystem;
 use Diana\Support\Helpers\Str;
 use Diana\Runtime\Attributes\Config;
-use Diana\Drivers\ConfigInterface;
-use Diana\Drivers\RouteInterface;
-use Diana\Drivers\RouterInterface;
+use Diana\Contracts\ConfigContract;
+use Diana\Contracts\RouteContract;
+use Diana\Contracts\RouterContract;
 use Diana\Support\Serializer\ArraySerializer;
-use Illuminate\Contracts\Container\BindingResolutionException;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
 
 // TODO: Rework this piece of junk
-class FileRouter implements RouterInterface
+class FileRouter implements RouterContract
 {
     /**
-     * @var RouteInterface[][] The routes
+     * @var RouteContract[][] The routes
      */
-    protected array $routes;
+    protected array $routes = [];
 
     /**
-     * @var RouteInterface[] The commands
+     * @var RouteContract[] The commands
      */
-    protected array $commands;
+    protected array $commands = [];
 
     /**
      * @throws FileNotFoundException
      */
     public function __construct(
-        #[Config('cfg/framework')] protected ConfigInterface $config,
-        protected ContainerInterface $container,
+        #[Config('cfg/framework')] protected ConfigContract $config,
+        protected ContainerContract $container,
         protected Framework $app,
-        protected EventManagerInterface $eventManager
+        protected EventManagerContract $eventManager
     ) {
         $config->addDefault(['routeCachePath' => 'tmp/routes.php']);
 
@@ -64,24 +63,25 @@ class FileRouter implements RouterInterface
             $this->routes = $this->unserializeRoutes($routes['routes']);
             $this->commands = $this->unserializeCommands($routes['commands']);
         } else {
-            $this->eventManager->addEventListener(new EventListener(
+            // todo: the router shouldnt depend on the event manager
+            $this->eventManager->addNewEventListener(
                 class: Framework::class,
                 action: 'registerPackage',
                 callable: [$this, 'loadRoutes'],
-                before: ['*']
-            ));
+                extra: [
+                    'before' => ['*']
+                ]
+            );
 
-            $this->eventManager->addEventListener(new EventListener(
-                class: Framework::class,
-                action: 'boot',
+            $this->eventManager->addNewEventListener(
+                event: BootEvent::class,
                 callable: [$this, 'cacheRoutes']
-            ));
+            );
         }
     }
 
-    public function cacheRoutes(EventListener $eventListener): void
+    public function cacheRoutes(): void
     {
-        $this->eventManager->removeEventListener($eventListener);
         $cachePath = $this->app->path($this->config->get('routeCachePath'));
         file_put_contents(
             $cachePath,
@@ -109,7 +109,7 @@ class FileRouter implements RouterInterface
                 $httpMethodAttribute = $attribute->getName();
                 $attributeArgs = $attribute->getArguments();
 
-                $route = $this->container->make(RouteInterface::class, [
+                $route = $this->container->make(RouteContract::class, [
                     'controller' => $package,
                     'method' => $classMethod->name,
                     'middleware' => $middleware,
@@ -141,7 +141,7 @@ class FileRouter implements RouterInterface
      * @throws DuplicateRouteException
      * @throws MissingArgumentsException
      */
-    protected function addRoute(string $httpMethodAttribute, array $args, RouteInterface $route): void
+    protected function addRoute(string $httpMethodAttribute, array $args, RouteContract $route): void
     {
         if ($httpMethodAttribute == HttpErrorHandler::class) {
             $this->routes['*'][HttpErrorHandler::class] = $route;
@@ -203,7 +203,7 @@ class FileRouter implements RouterInterface
      * @throws CommandNotFoundException
      * @throws UnsupportedRequestTypeException
      */
-    public function resolve(RequestInterface $request): RouteInterface
+    public function resolve(RequestContract $request): RouteContract
     {
         if ($request instanceof HttpRequest) {
             return $this->findRoute($request->getRoute(), $request->getMethod());
@@ -219,7 +219,7 @@ class FileRouter implements RouterInterface
     /**
      * @throws RouteNotFoundException
      */
-    protected function findRoute(string $path, string $method): RouteInterface
+    protected function findRoute(string $path, string $method): RouteContract
     {
         $trim = trim($path, '/');
         $segments = explode('/', $trim);
@@ -227,7 +227,7 @@ class FileRouter implements RouterInterface
 
         $params = [];
 
-        foreach ($this->routes[$method] as $route) {
+        foreach ($this->routes[$method] ?? [] as $route) {
             $routeSegments = $route->getSegments();
             if ($segmentCount != count($routeSegments)) {
                 continue;
@@ -248,18 +248,18 @@ class FileRouter implements RouterInterface
         throw new RouteNotFoundException("The route [{$path}] using the method [{$method}] could not have been found.");
     }
 
-    public function getErrorRoute(): ?RouteInterface
+    public function getErrorRoute(): ?RouteContract
     {
         return $this->routes['*'][HttpErrorHandler::class] ?? null;
     }
 
-    public function getErrorCommandRoute(): ?RouteInterface
+    public function getErrorCommandRoute(): ?RouteContract
     {
         return $this->commands[CommandErrorHandler::class] ?? null;
     }
 
     /**
-     * @param RouteInterface[][] $routes
+     * @param RouteContract[][] $routes
      */
     public function serializeRoutes(array $routes): array
     {
@@ -277,7 +277,7 @@ class FileRouter implements RouterInterface
         $unserialized = [];
         foreach ($routes as $method => $routesByMethod) {
             foreach ($routesByMethod as $routePath => $serializedRoute) {
-                $routeInstance = $this->container->make(RouteInterface::class, [
+                $routeInstance = $this->container->make(RouteContract::class, [
                     'controller' => $serializedRoute['controller'],
                     'method' => $serializedRoute['method'],
                     'middleware' => $serializedRoute['middleware'] ?? [],
@@ -291,7 +291,7 @@ class FileRouter implements RouterInterface
     }
 
     /**
-     * @param RouteInterface[] $commands
+     * @param RouteContract[] $commands
      */
     public function serializeCommands(array $commands): array
     {
@@ -306,7 +306,7 @@ class FileRouter implements RouterInterface
     {
         $unserialized = [];
         foreach ($commands as $name => $serializedRoute) {
-            $routeInstance = $this->container->make(RouteInterface::class, [
+            $routeInstance = $this->container->make(RouteContract::class, [
                 'controller' => $serializedRoute['controller'],
                 'method' => $serializedRoute['method'],
                 'middleware' => $serializedRoute['middleware'] ?? [],
@@ -320,7 +320,7 @@ class FileRouter implements RouterInterface
     /**
      * @throws CommandNotFoundException
      */
-    protected function findCommand(string $commandName, array $args = []): RouteInterface
+    protected function findCommand(string $commandName, array $args = []): RouteContract
     {
         if (isset($this->commands[$commandName])) {
             $command = $this->commands[$commandName];

@@ -2,7 +2,7 @@
 
 namespace Diana\Runtime\KernelModules;
 
-use Diana\Drivers\ConfigInterface;
+use Diana\Contracts\ConfigContract;
 use Diana\Runtime\Attributes\Config;
 use Diana\Runtime\Framework;
 
@@ -10,7 +10,7 @@ class ProvideAliases implements KernelModule
 {
     public function __construct(
         protected Framework $app,
-        #[Config('cfg/framework')] protected ConfigInterface $config
+        #[Config('cfg/framework')] protected ConfigContract $config
     ) {
     }
 
