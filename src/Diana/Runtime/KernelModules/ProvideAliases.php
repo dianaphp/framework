@@ -2,36 +2,64 @@
 
 namespace Diana\Runtime\KernelModules;
 
+use Diana\Cache\FileCache;
+use Diana\Contracts\CacheContract;
 use Diana\Contracts\ConfigContract;
+use Diana\Contracts\ContainerContract;
 use Diana\Runtime\Attributes\Config;
 use Diana\Runtime\Framework;
+use Psr\SimpleCache\InvalidArgumentException;
+use ReflectionClass;
+use ReflectionException;
 
 class ProvideAliases implements KernelModule
 {
+    protected const string CACHE_KEY = 'aliases';
+
+    protected CacheContract $cache;
+
     public function __construct(
         protected Framework $app,
+        ContainerContract $container,
         #[Config('cfg/framework')] protected ConfigContract $config
     ) {
+        // this is hard-coded on purpose, ide cache can only be a file
+        $this->cache = $container->make(FileCache::class);
+        $this->cache->setExtension('.cache.php');
     }
 
+    /**
+     * @throws ReflectionException
+     * @throws InvalidArgumentException
+     */
     public function __invoke(): void
     {
-        // cache ide helpers
+        $cache = $this->cache->has(self::CACHE_KEY);
+
+        // ide helpers
         // TODO: make this a command
-        // TODO: outsource to cache class
-        if (!file_exists($cachePath = $this->app->path($this->config->get('aliasCachePath')))) {
-            $cache = "<?php" . str_repeat(PHP_EOL, 2);
+        if (!$cache) {
+            $script = "<?php" . str_repeat(PHP_EOL, 2);
 
             foreach ($this->config->get('aliases') as $class) {
-                $cache .= "class " . substr($class, strrpos($class, '\\') + 1) . " extends $class {}" . PHP_EOL;
+                $script .= "class " . substr($class, strrpos($class, '\\') + 1) . " extends $class {}" . PHP_EOL;
             }
 
-            file_put_contents($cachePath, $cache);
+            $this->cache->set(self::CACHE_KEY, $script);
         }
 
         // provide aliases
+        $this->provideAliases();
+    }
+
+    /**
+     * @throws ReflectionException
+     */
+    public function provideAliases(): void
+    {
         foreach ($this->config->get('aliases') as $class) {
-            class_alias($class, substr($class, strrpos($class, '\\') + 1));
+            $reflection = new ReflectionClass($class);
+            class_alias($class, $reflection->getShortName());
         }
     }
 }

@@ -3,11 +3,10 @@
 namespace Diana\Event;
 
 use Diana\Contracts\ContainerContract;
-use Diana\Event\EventInterface;
 use Diana\Contracts\EventManagerContract;
 use Diana\Contracts\EventListenerContract;
 use Diana\Event\Attributes\EventListener as EventListenerAttribute;
-use Diana\Events\BootEvent;
+use Diana\Event\Exceptions\EventListenerNotRegistered;
 use Diana\Events\RegisterPackageEvent;
 use Diana\Runtime\Framework;
 use ReflectionClass;
@@ -109,22 +108,29 @@ class EventManager implements EventManagerContract
 
     public function addSingleEventListener(EventListenerContract $eventListener): void
     {
-        $eventListener->setCallable(function () use ($eventListener) {
+        $oldCallable = $eventListener->getCallable();
+        $eventListener->setCallable(function (EventListenerContract $eventListener) use ($oldCallable) {
             $this->removeEventListener($eventListener);
-            $eventListener->getCallable()(...func_get_args());
+            $oldCallable(...func_get_args());
         });
         $this->addEventListener($eventListener);
     }
 
+    /**
+     * @throws EventListenerNotRegistered
+     */
     public function removeEventListener(EventListenerContract $eventListener): void
     {
         $event = $eventListener->getEvent();
 
-        foreach ($this->eventListeners[$event] ?? [] as $key => $listener) {
-            if ($listener->getCallable() == $eventListener->getCallable()) {
-                unset($this->eventListeners[$event][$key]);
+        foreach ($this->eventListeners[$event] ?? [] as $i => $listener) {
+            if ($listener == $eventListener) {
+                unset($this->eventListeners[$event][$i]);
+                return;
             }
         }
+
+        throw new EventListenerNotRegistered($eventListener);
     }
 
     public function fire(EventInterface $event): void

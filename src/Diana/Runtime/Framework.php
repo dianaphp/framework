@@ -7,7 +7,6 @@ use Composer\Autoload\ClassLoader;
 use Diana\Controllers\CoreCommandsController;
 use Diana\Controllers\StubCommandsController;
 use Diana\Contracts\ContainerContract;
-use Diana\Event\EventInterface;
 use Diana\Contracts\EventManagerContract;
 use Diana\Contracts\RequestContract;
 use Diana\Contracts\RouteContract;
@@ -20,17 +19,14 @@ use Diana\IO\Pipeline;
 use Diana\IO\Request;
 use Diana\IO\Response;
 use Diana\Contracts\ConfigContract;
-use Diana\Proxies\ProxyInterface;
 use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\RouteNotFoundException;
 use Diana\Runtime\KernelModules\ConfigurePhp;
 use Diana\Runtime\KernelModules\ProvideAliases;
-use Diana\Runtime\KernelModules\RegisterExceptionHandler;
+use Diana\Runtime\KernelModules\ExceptionHandler;
 use Diana\Support\Helpers\Data;
-use Illuminate\Contracts\Container\BindingResolutionException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use ReflectionClass;
 use ReflectionException;
 
 class Framework
@@ -45,7 +41,7 @@ class Framework
     protected array $middleware = [];
 
     protected array $modules = [
-        RegisterExceptionHandler::class,
+        ExceptionHandler::class,
         ConfigurePhp::class,
         ProvideAliases::class
     ];
@@ -63,18 +59,16 @@ class Framework
     ) {
         $this->frameworkPath = dirname(__DIR__, 3);
 
-        $this->loadConfig($config);
+        $this->setupConfig($config);
         $this->instantiateContainer();
         $this->registerBindings();
-        //$this->setupLogger();
-        //$this->setupCache();
-        $this->setupDrivers();
         $this->runModules();
+        $this->setupDrivers();
 
         $this->registerPackage($this->config->get('entryPoint'));
     }
 
-    protected function loadConfig(Closure|ConfigContract $config): void
+    protected function setupConfig(Closure|ConfigContract $config): void
     {
         $this->config = Data::valueOf($config, $this);
         $this->config->addDefault($this->getDefaultConfig());
@@ -86,24 +80,28 @@ class Framework
      */
     protected function setupDrivers(): void
     {
+        // todo: $this->logger = $this->container->get(LoggerContract::class);
         $this->eventManager = $this->container->get(EventManagerContract::class);
         $this->router = $this->container->get(RouterContract::class);
     }
 
     protected function instantiateContainer(): void
     {
-        $bindings = $this->config->get('bindings');
-        $containerClass = $bindings[ContainerContract::class];
+        $singleton = $this->config->get('singleton');
+        $containerClass = $singleton[ContainerContract::class];
         $this->container = new $containerClass();
     }
 
-    /**
-     * @throws ReflectionException
-     */
     protected function registerBindings(): void
     {
+        foreach ($this->config->get('contextualBindings') as $class => $bindings) {
+            foreach ($bindings as $abstract => $concrete) {
+                $this->container->addContextualBinding($class, $abstract, $concrete);
+            }
+        }
+
         // it is crucial to register the user defined bindings first, as they might override core bindings
-        foreach ($this->config->get('bindings') as $abstract => $concrete) {
+        foreach ($this->config->get('singleton') as $abstract => $concrete) {
             // TODO: binding resolving as event? or pipeline?
             // TODO: outsource to another class?
 //            if (is_a($concrete, ProxyInterface::class, true)) {
@@ -131,6 +129,7 @@ class Framework
     public function runModules(): void
     {
         foreach ($this->modules as $module) {
+            $this->container->singleton($module);
             $this->container->make($module)();
         }
     }
@@ -256,16 +255,22 @@ class Framework
         return [
             'output' => 'php://output',
             'sapi' => PHP_SAPI, // TODO: outsource to env.php
-            'aliasCachePath' => 'tmp/aliases.php',
+            'cachePath' => 'tmp',
             'aliases' => [],
-            'bindings' => [
+            'singleton' => [
                 \Diana\Contracts\ContainerContract::class => \Diana\Runtime\IlluminateContainer::class,
                 \Diana\Contracts\ConfigContract::class => \Diana\Config\FileConfig::class,
+                \Diana\Contracts\CacheContract::class => \Diana\Cache\JsonFileCache::class,
                 \Diana\Contracts\EventListenerContract::class => \Diana\Event\EventListener::class,
-                \Diana\Contracts\RouterContract::class => \Diana\Router\FileRouter::class,
+                \Diana\Contracts\RouterContract::class => \Diana\Router\FileRouterCached::class,
                 \Diana\Contracts\RouteContract::class => \Diana\Router\Route::class,
                 \Diana\Contracts\RendererContract::class => \Diana\Rendering\Drivers\BladeRenderer::class,
                 \Diana\Contracts\EventManagerContract::class => \Diana\Event\EventManager::class
+            ],
+            'contextualBindings' => [
+                \Diana\Router\FileRouterCached::class => [
+                    \Diana\Contracts\CacheContract::class => \Diana\Cache\PhpFileCache::class
+                ]
             ],
             'entryPoint' => '\App\AppModule',
             'env' => 'dev',

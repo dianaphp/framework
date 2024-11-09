@@ -6,7 +6,7 @@ use Diana\IO\ConsoleRequest;
 use Diana\IO\HttpRequest;
 use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\RouteNotFoundException;
-use Diana\Router\FileRouter;
+use Diana\Router\FileRouterPlain;
 use Diana\Routing\Router;
 use Diana\Tests\Controllers\AllMethodsController;
 use Diana\Tests\Controllers\CommandController;
@@ -21,7 +21,7 @@ class RouterTest extends TestCase
 
     public function setUp(): void
     {
-        $this->router = new FileRouter();
+        $this->router = new FileRouterPlain();
     }
 
     public function tearDown(): void

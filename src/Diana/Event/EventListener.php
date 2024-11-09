@@ -2,13 +2,14 @@
 
 namespace Diana\Event;
 
+use Closure;
 use Diana\Contracts\EventListenerContract;
 
 class EventListener implements EventListenerContract
 {
     public function __construct(
         protected string $event,
-        protected array|string $callable,
+        protected array|string|Closure $callable,
         protected array $before = [],
         protected array $after = []
     ) {

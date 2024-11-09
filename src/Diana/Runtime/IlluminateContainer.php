@@ -53,4 +53,9 @@ readonly class IlluminateContainer implements ContainerContract
     {
         $this->container->addContextualBinding($class, $abstract, $concrete);
     }
+
+    public function alias(string $abstract, string $alias): void
+    {
+        $this->container->alias($abstract, $alias);
+    }
 }
