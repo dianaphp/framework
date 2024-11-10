@@ -6,7 +6,7 @@ use Diana\Contracts\CacheContract;
 
 class JsonFileCache extends FileCache implements CacheContract
 {
-    public function getExtension(): string
+    public function getCacheExtension(): string
     {
         return '.cache.json';
     }

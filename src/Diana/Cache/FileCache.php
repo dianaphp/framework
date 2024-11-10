@@ -2,14 +2,19 @@
 
 namespace Diana\Cache;
 
+use DateInterval;
+use DateMalformedIntervalStringException;
+use DateTime;
 use Diana\Contracts\CacheContract;
 use Diana\Contracts\ConfigContract;
 use Diana\Runtime\Attributes\Config;
 use Diana\Runtime\Framework;
+use Diana\Support\Wrapper\ArrayWrapper;
 
 class FileCache implements CacheContract
 {
-    protected string $extension = '.cache';
+    protected string $cacheExtension = '.cache.txt';
+    protected string $metaExtension = '.meta.txt';
 
     public function __construct(
         #[Config('cfg/framework')] protected ConfigContract $config,
@@ -17,44 +22,118 @@ class FileCache implements CacheContract
     ) {
     }
 
-    public function setExtension(string $extension): void
+    public function setCacheExtension(string $extension): void
     {
-        $this->extension = $extension;
+        $this->cacheExtension = $extension;
     }
 
-    public function getExtension(): string
+    public function setMetaExtension(string $extension): void
     {
-        return $this->extension;
+        $this->metaExtension = $extension;
     }
 
-    protected function getFileName(string $key): string
+    public function getCacheExtension(): string
     {
-        return $this->app->path(join(DIRECTORY_SEPARATOR, [
-            $this->config->get('cachePath'),
-            $key . $this->getExtension()
-        ]));
+        return $this->cacheExtension;
+    }
+
+    public function getMetaExtension(): string
+    {
+        return $this->metaExtension;
+    }
+
+    public function getCacheDir(): string
+    {
+        return $this->app->path($this->config->get('cachePath'));
+    }
+
+    public function getMetaDir(): string
+    {
+        return $this->getCacheDir();
+    }
+
+    protected function getCacheFileName(string $key): string
+    {
+        return $this->getCacheDir() . DIRECTORY_SEPARATOR . $key . $this->getCacheExtension();
+    }
+
+    protected function getMetaFileName(string $key): string
+    {
+        return $this->getMetaDir() . DIRECTORY_SEPARATOR . $key . $this->getMetaExtension();
     }
 
     public function get(string $key, mixed $default = null): mixed
     {
-        // todo: implement ttl
-        $content = file_get_contents($this->getFileName($key));
-        return $content === false ? $default : $content;
+        if (!$this->has($key)) {
+            return $default;
+        }
+
+        $content = file_get_contents($this->getCacheFileName($key));
+        return $content !== false ? $content : $default;
     }
 
-    public function set(string $key, mixed $value, \DateInterval|int|null $ttl = null): bool
+    public function setByTimestamp(string $key, mixed $value, int $expiration): bool
     {
-        // todo: implement ttl
-        return (bool)file_put_contents($this->getFileName($key), $value);
+        return
+            file_put_contents($this->getCacheFileName($key), $value) &&
+            file_put_contents($this->getMetaFileName($key), $expiration);
+    }
+
+    /**
+     * @throws DateMalformedIntervalStringException
+     */
+    public function calculateExpiration(DateTime $dateTime, int|DateInterval|null $ttl): int
+    {
+        if (!$ttl) {
+            return 0;
+        }
+
+        if (!$ttl instanceof DateInterval) {
+            $ttl = new DateInterval('P' . (int)$ttl . 'S');
+        }
+
+        return (clone $dateTime)->add($ttl)->getTimestamp();
+    }
+
+    /**
+     * @throws DateMalformedIntervalStringException
+     */
+    public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): bool
+    {
+        $expiration = $this->calculateExpiration(new DateTime(), $ttl);
+        return $this->setByTimestamp($key, $value, $expiration);
     }
 
     public function delete(string $key): bool
     {
-        return unlink($this->getFileName($key));
+        $success = true;
+        if (file_exists($this->getMetaFileName($key))) {
+            $success = unlink($this->getMetaFileName($key));
+        }
+
+        if (file_exists($this->getCacheFileName($key))) {
+            $success = $success && unlink($this->getCacheFileName($key));
+        }
+        return $success;
     }
 
     public function clear(): bool
     {
+        $array = arr(0);
+        var_dump($array);
+        die;
+
+        $files = array_diff(scandir($this->getCacheDir()), ['.', '..']);
+
+        $files = array_filter($files, function ($file) {
+            return is_file($this->getCacheDir() . DIRECTORY_SEPARATOR . $file);
+        });
+
+        foreach (array_diff([], scandir($this->getCacheDir())) as $file) {
+
+        }
+
+//        $this->getCacheDir();
         // todo: clear entire folder
         // $files = glob($this->config->get('cachePath') . '/*');
         return false;
@@ -62,21 +141,51 @@ class FileCache implements CacheContract
 
     public function getMultiple(iterable $keys, mixed $default = null): iterable
     {
-        // TODO: Implement getMultiple() method.
+        $values = [];
+        foreach ($keys as $key) {
+            $values[$key] = $this->get($key, $default);
+        }
+        return $values;
     }
 
+    /**
+     * @throws DateMalformedIntervalStringException
+     */
     public function setMultiple(iterable $values, \DateInterval|int|null $ttl = null): bool
     {
-        // TODO: Implement setMultiple() method.
+        $expiration = $this->calculateExpiration(new DateTime(), $ttl);
+        $success = true;
+        foreach ($values as $key => $value) {
+            $success = $success && $this->setByTimestamp($key, $value, $expiration);
+        }
+        return $success;
     }
 
     public function deleteMultiple(iterable $keys): bool
     {
-        // TODO: Implement deleteMultiple() method.
+        $success = true;
+        foreach ($keys as $key) {
+            $success = $success && $this->delete($key);
+        }
+        return $success;
     }
 
     public function has(string $key): bool
     {
-        return file_exists($this->getFileName($key));
+        if (!file_exists($this->getMetaFileName($key))) {
+            return false;
+        }
+
+        $meta = file_get_contents($this->getMetaFileName($key));
+        if ($meta === false) {
+            return false;
+        }
+
+        if (!is_numeric($meta) || (int)$meta != 0 && time() > (int)$meta) {
+            $this->delete($key);
+            return false;
+        }
+
+        return file_exists($this->getCacheFileName($key));
     }
 }

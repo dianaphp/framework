@@ -9,7 +9,7 @@ use Diana\Support\Serializer\ArraySerializer;
 
 class PhpFileCache extends FileCache implements CacheContract
 {
-    public function getExtension(): string
+    public function getCacheExtension(): string
     {
         return '.cache.php';
     }
@@ -17,7 +17,7 @@ class PhpFileCache extends FileCache implements CacheContract
     public function get(string $key, mixed $default = null): mixed
     {
         try {
-            return Filesystem::getRequire($this->getFileName($key));
+            return Filesystem::getRequire($this->getCacheFileName($key));
         } catch (FileNotFoundException) {
             return $default;
         }

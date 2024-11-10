@@ -25,7 +25,7 @@ class ProvideAliases implements KernelModule
     ) {
         // this is hard-coded on purpose, ide cache can only be a file
         $this->cache = $container->make(FileCache::class);
-        $this->cache->setExtension('.cache.php');
+        $this->cache->setCacheExtension('.cache.php');
     }
 
     /**
@@ -39,11 +39,13 @@ class ProvideAliases implements KernelModule
         // ide helpers
         // TODO: make this a command
         if (!$cache) {
-            $script = "<?php" . str_repeat(PHP_EOL, 2);
+            $script = "<?php";
 
             foreach ($this->config->get('aliases') as $class) {
-                $script .= "class " . substr($class, strrpos($class, '\\') + 1) . " extends $class {}" . PHP_EOL;
+                $script .= PHP_EOL . "class " . substr($class, strrpos($class, '\\') + 1) . " extends $class {}";
             }
+
+            $script .= PHP_EOL;
 
             $this->cache->set(self::CACHE_KEY, $script);
         }
