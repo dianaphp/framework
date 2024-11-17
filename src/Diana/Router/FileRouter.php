@@ -25,11 +25,7 @@ class FileRouter extends Router implements RouterContract
         protected ContainerContract $container,
         EventManagerContract $eventManager
     ) {
-        $eventManager->addNewEventListener(
-            event: RegisterPackageEvent::class,
-            callable: [$this, 'handlePackage'],
-            before: ['*']
-        );
+        $eventManager->addNewEventListener(RegisterPackageEvent::class, [$this, 'handlePackage'], ['*']);
     }
 
     /**
@@ -60,7 +56,7 @@ class FileRouter extends Router implements RouterContract
                 $attributeArgs = $attribute->getArguments();
 
                 if (!$this->isValidAttribute($attributeName)) {
-                    return;
+                    continue;
                 }
 
                 $route = $this->container->make(RouteContract::class, [
@@ -91,9 +87,9 @@ class FileRouter extends Router implements RouterContract
         return $middleware;
     }
 
-    protected function isValidAttribute(string $httpMethodAttribute): bool
+    protected function isValidAttribute(string $attributeName): bool
     {
-        static $handledRoutes = [
+        $handledRoutes = [
             Route::class,
             Command::class,
             HttpErrorHandler::class,
@@ -101,7 +97,7 @@ class FileRouter extends Router implements RouterContract
         ];
 
         foreach ($handledRoutes as $attributeClass) {
-            if (is_a($httpMethodAttribute, $attributeClass, true)) {
+            if (is_a($attributeName, $attributeClass, true)) {
                 return true;
             }
         }

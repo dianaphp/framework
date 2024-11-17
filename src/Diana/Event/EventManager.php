@@ -24,14 +24,7 @@ class EventManager implements EventManagerContract
         protected Framework $app,
         protected ContainerContract $container
     ) {
-        // if(!cached) {
-        $this->addNewEventListener(
-            RegisterPackageEvent::class,
-            [$this, 'loadEventListeners'],
-            before: ['*']
-        );
-        // $this->cacheEventListeners();
-        // }
+        $this->addNewEventListener(RegisterPackageEvent::class, [$this, 'loadEventListeners'], ['*']);
     }
 
     /**

@@ -119,24 +119,15 @@ class FileCache implements CacheContract
 
     public function clear(): bool
     {
-        $array = arr(0);
-        var_dump($array);
-        die;
+        $success = true;
+        arr(scandir($this->getCacheDir()))
+            ->diff(['.', '..'])
+            ->filter(fn ($file) => is_file($this->getCacheDir() . DIRECTORY_SEPARATOR . $file))
+            ->each(function ($file) use (&$success) {
+                $success = $success && unlink($this->getCacheDir() . DIRECTORY_SEPARATOR . $file);
+            });
 
-        $files = array_diff(scandir($this->getCacheDir()), ['.', '..']);
-
-        $files = array_filter($files, function ($file) {
-            return is_file($this->getCacheDir() . DIRECTORY_SEPARATOR . $file);
-        });
-
-        foreach (array_diff([], scandir($this->getCacheDir())) as $file) {
-
-        }
-
-//        $this->getCacheDir();
-        // todo: clear entire folder
-        // $files = glob($this->config->get('cachePath') . '/*');
-        return false;
+        return $success;
     }
 
     public function getMultiple(iterable $keys, mixed $default = null): iterable

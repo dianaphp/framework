@@ -3,6 +3,7 @@
 namespace Diana\Runtime;
 
 use Closure;
+use ErrorException;
 use Composer\Autoload\ClassLoader;
 use Diana\Controllers\CoreCommandsController;
 use Diana\Controllers\StubCommandsController;
@@ -27,7 +28,6 @@ use Diana\Runtime\KernelModules\ExceptionHandler;
 use Diana\Support\Helpers\Data;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use ReflectionException;
 
 class Framework
 {
@@ -49,7 +49,6 @@ class Framework
     /**
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface
-     * @throws ReflectionException
      */
     public function __construct(
         protected string $appPath,
@@ -161,7 +160,12 @@ class Framework
         $response = $this->handleRequest($request);
 
         $status = $response->getStatusCode();
-        http_response_code($status);
+//        try {
+            http_response_code($status);
+//        } catch (ErrorException $e) {
+            // todo: enable for debugging in case we want to dump something before the response code is set
+            // use logger here
+//        }
 
         fwrite($buffer, $response);
         fclose($buffer);
