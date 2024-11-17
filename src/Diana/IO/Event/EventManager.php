@@ -1,13 +1,13 @@
 <?php
 
-namespace Diana\Event;
+namespace Diana\IO\Event;
 
 use Diana\Contracts\ContainerContract;
-use Diana\Contracts\EventManagerContract;
 use Diana\Contracts\EventListenerContract;
-use Diana\Event\Attributes\EventListener as EventListenerAttribute;
-use Diana\Event\Exceptions\EventListenerNotRegistered;
+use Diana\Contracts\EventManagerContract;
 use Diana\Events\RegisterPackageEvent;
+use Diana\IO\Event\Attributes\EventListener as EventListenerAttribute;
+use Diana\IO\Event\Exceptions\EventListenerNotRegistered;
 use Diana\Runtime\Framework;
 use ReflectionClass;
 use ReflectionException;
@@ -126,17 +126,17 @@ class EventManager implements EventManagerContract
         throw new EventListenerNotRegistered($eventListener);
     }
 
-    public function fire(EventInterface $event): void
+    // todo: replace object with BaseEventMessage class?
+    public function dispatch(object $message): void
     {
-        $class = get_class($event);
+        $class = get_class($message);
 
         // sort
         $this->sortListeners($class);
 
         foreach ($this->eventListeners[$class] ?? [] as $listener) {
             $this->container->call($listener->getCallable(), [
-                $class => $event,
-                EventInterface::class => $event,
+                $class => $message,
                 EventListenerContract::class => $listener,
             ]);
         }

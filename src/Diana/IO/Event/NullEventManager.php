@@ -1,17 +1,15 @@
 <?php
 
-namespace Diana\Event;
+namespace Diana\IO\Event;
 
 use Diana\Contracts\ContainerContract;
-use Diana\Event\EventInterface;
-use Diana\Contracts\EventManagerContract;
 use Diana\Contracts\EventListenerContract;
+use Diana\Contracts\EventManagerContract;
 use Diana\Runtime\Framework;
 
 class NullEventManager implements EventManagerContract
 {
     public function __construct(
-        protected Framework $app,
         protected ContainerContract $container
     ) {
     }
@@ -62,7 +60,7 @@ class NullEventManager implements EventManagerContract
     {
     }
 
-    public function fire(EventInterface $event): void
+    public function dispatch(object $message): void
     {
     }
 }

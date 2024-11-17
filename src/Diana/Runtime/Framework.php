@@ -3,10 +3,8 @@
 namespace Diana\Runtime;
 
 use Closure;
-use ErrorException;
 use Composer\Autoload\ClassLoader;
-use Diana\Controllers\CoreCommandsController;
-use Diana\Controllers\StubCommandsController;
+use Diana\Contracts\ConfigContract;
 use Diana\Contracts\ContainerContract;
 use Diana\Contracts\EventManagerContract;
 use Diana\Contracts\RequestContract;
@@ -19,12 +17,11 @@ use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Pipeline;
 use Diana\IO\Request;
 use Diana\IO\Response;
-use Diana\Contracts\ConfigContract;
 use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\RouteNotFoundException;
 use Diana\Runtime\KernelModules\ConfigurePhp;
-use Diana\Runtime\KernelModules\ProvideAliases;
 use Diana\Runtime\KernelModules\ExceptionHandler;
+use Diana\Runtime\KernelModules\ProvideAliases;
 use Diana\Support\Helpers\Data;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
@@ -142,7 +139,7 @@ class Framework
         $instance = $this->container->make($package);
         $this->container->instance($package, $instance);
 
-        $this->eventManager->fire(new RegisterPackageEvent($instance, $force));
+        $this->eventManager->dispatch(new RegisterPackageEvent($instance, $force));
     }
 
     /**
@@ -152,7 +149,7 @@ class Framework
      */
     public function boot(): void
     {
-        $this->eventManager->fire(new BootEvent());
+        $this->eventManager->dispatch(new BootEvent());
 
         $buffer = fopen($this->config->get('output'), 'a');
 
@@ -265,11 +262,11 @@ class Framework
                 \Diana\Contracts\ContainerContract::class => \Diana\Runtime\IlluminateContainer::class,
                 \Diana\Contracts\ConfigContract::class => \Diana\Config\FileConfig::class,
                 \Diana\Contracts\CacheContract::class => \Diana\Cache\JsonFileCache::class,
-                \Diana\Contracts\EventListenerContract::class => \Diana\Event\EventListener::class,
+                \Diana\Contracts\EventListenerContract::class => \Diana\IO\Event\EventListener::class,
                 \Diana\Contracts\RouterContract::class => \Diana\Router\FileRouterCached::class,
                 \Diana\Contracts\RouteContract::class => \Diana\Router\Route::class,
                 \Diana\Contracts\RendererContract::class => \Diana\Rendering\Drivers\BladeRenderer::class,
-                \Diana\Contracts\EventManagerContract::class => \Diana\Event\EventManager::class
+                \Diana\Contracts\EventManagerContract::class => \Diana\IO\Event\EventManager::class
             ],
             'contextualBindings' => [
                 \Diana\Router\FileRouterCached::class => [

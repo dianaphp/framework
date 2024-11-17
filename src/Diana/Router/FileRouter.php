@@ -139,15 +139,16 @@ class FileRouter extends Router implements RouterContract
         }
 
         $path = '/';
-        if (isset($route->getController()::$route)) {
-            $path .= trim($route['controller']::$route, '/') . '/';
+        $controller = $route->getController();
+        if (isset($controller::$route)) {
+            $path .= trim($controller::$route, '/') . '/';
         }
 
         $path .= trim($args[0], '/');
 
         if (array_key_exists($path, $this->routes[$attributeMethod])) {
             throw new DuplicateRouteException(
-                'Route [' . $route->getController() . '@' . $route->getMethod() . '] tried to assign the path [' .
+                'Route [' . $controller . '@' . $route->getMethod() . '] tried to assign the path [' .
                 $path . '] that has already been assigned to [' .
                 $this->routes[$attributeMethod][$path]->getController() .
                 '@' . $this->routes[$attributeMethod][$path]->getMethod() . ']'

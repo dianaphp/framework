@@ -1,8 +1,7 @@
 <?php
 
-namespace Diana\Event;
+namespace Diana\IO\Event;
 
-use Diana\Event\EventInterface;
 use Diana\Contracts\EventListenerContract;
 
 class NullEventListener implements EventListenerContract

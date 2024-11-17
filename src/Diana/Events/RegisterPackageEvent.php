@@ -2,9 +2,7 @@
 
 namespace Diana\Events;
 
-use Diana\Event\EventInterface;
-
-class RegisterPackageEvent implements EventInterface
+class RegisterPackageEvent
 {
     public function __construct(protected object $package, protected bool $force)
     {

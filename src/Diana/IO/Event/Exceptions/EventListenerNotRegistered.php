@@ -1,6 +1,6 @@
 <?php
 
-namespace Diana\Event\Exceptions;
+namespace Diana\IO\Event\Exceptions;
 
 use Diana\Contracts\EventListenerContract;
 use Exception;

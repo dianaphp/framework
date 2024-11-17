@@ -1,6 +1,6 @@
 <?php
 
-namespace Diana\Event;
+namespace Diana\IO\Event;
 
 use Closure;
 use Diana\Contracts\EventListenerContract;

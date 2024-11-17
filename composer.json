@@ -20,6 +20,9 @@
         ],
         "post-update-cmd": [
             "phpunit"
+        ],
+        "test": [
+            "phpunit"
         ]
     },
     "authors": [

@@ -1,6 +1,6 @@
 <?php
 
-namespace Diana\Event\Attributes;
+namespace Diana\IO\Event\Attributes;
 
 use Attribute;
 
