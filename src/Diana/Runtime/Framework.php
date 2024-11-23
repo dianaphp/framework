@@ -262,7 +262,6 @@ class Framework
                 \Diana\Contracts\ContainerContract::class => \Diana\Runtime\IlluminateContainer::class,
                 \Diana\Contracts\ConfigContract::class => \Diana\Config\FileConfig::class,
                 \Diana\Contracts\CacheContract::class => \Diana\Cache\JsonFileCache::class,
-                \Diana\Contracts\EventListenerContract::class => \Diana\IO\Event\EventListener::class,
                 \Diana\Contracts\RouterContract::class => \Diana\Router\FileRouterCached::class,
                 \Diana\Contracts\RouteContract::class => \Diana\Router\Route::class,
                 \Diana\Contracts\RendererContract::class => \Diana\Rendering\Drivers\BladeRenderer::class,

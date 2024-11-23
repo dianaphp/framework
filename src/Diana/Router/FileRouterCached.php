@@ -29,7 +29,7 @@ class FileRouterCached extends FileRouter
         } else {
             parent::__construct($container, $eventManager);
 
-            $eventManager->addNewSingleEventListener(BootEvent::class, [$this, 'generateCache']);
+            $eventManager->addSingleEventListener(BootEvent::class, [$this, 'generateCache']);
         }
     }
 

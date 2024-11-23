@@ -25,7 +25,7 @@ class FileRouter extends Router implements RouterContract
         protected ContainerContract $container,
         EventManagerContract $eventManager
     ) {
-        $eventManager->addNewEventListener(RegisterPackageEvent::class, [$this, 'handlePackage'], ['*']);
+        $eventManager->addEventListener(RegisterPackageEvent::class, [$this, 'handlePackage'], ['*']);
     }
 
     /**

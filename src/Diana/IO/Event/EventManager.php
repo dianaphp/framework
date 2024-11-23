@@ -3,12 +3,11 @@
 namespace Diana\IO\Event;
 
 use Diana\Contracts\ContainerContract;
-use Diana\Contracts\EventListenerContract;
 use Diana\Contracts\EventManagerContract;
 use Diana\Events\RegisterPackageEvent;
 use Diana\IO\Event\Attributes\EventListener as EventListenerAttribute;
-use Diana\IO\Event\Exceptions\EventListenerNotRegistered;
 use Diana\Runtime\Framework;
+use Exception;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
@@ -16,19 +15,23 @@ use ReflectionMethod;
 class EventManager implements EventManagerContract
 {
     /**
-     * @var EventListenerContract[][] $eventListeners
+     * @var callable[][] $eventListeners
      */
     protected array $eventListeners = [];
 
+    /**
+     * @throws Exception
+     */
     public function __construct(
         protected Framework $app,
         protected ContainerContract $container
     ) {
-        $this->addNewEventListener(RegisterPackageEvent::class, [$this, 'loadEventListeners'], ['*']);
+        $this->addEventListener(RegisterPackageEvent::class, [$this, 'loadEventListeners'], ['*']);
     }
 
     /**
      * @throws ReflectionException
+     * @throws Exception
      */
     public function loadEventListeners(RegisterPackageEvent $event): void
     {
@@ -50,110 +53,89 @@ class EventManager implements EventManagerContract
                 $event = $attributeArgs['event'] ?? array_shift($attributeArgs);
                 $before = $attributeArgs['before'] ?? array_shift($attributeArgs) ?: [];
                 $after = $attributeArgs['after'] ?? array_shift($attributeArgs) ?: [];
-                $callable = [$package, $classMethod->name];
+                $eventListener = [$package, $classMethod->name];
 
-                $this->addEventListener($this->container->make(
-                    EventListenerContract::class,
-                    compact('event', 'callable', 'before', 'after')
-                ));
+                $this->addEventListener($event, $eventListener, $before, $after);
             }
         }
-    }
-
-    public function createEventListener(
-        string $event,
-        array|string $callable,
-        array $before = [],
-        array $after = []
-    ): EventListenerContract {
-        return $this->container->make(
-            EventListenerContract::class,
-            compact('event', 'callable', 'before', 'after')
-        );
-    }
-
-    public function addNewEventListener(
-        string $event,
-        array|string $callable,
-        array $before = [],
-        array $after = []
-    ): EventListenerContract {
-        $eventListener = $this->createEventListener($event, $callable, $before, $after);
-        $this->addEventListener($eventListener);
-        return $eventListener;
-    }
-
-    public function addNewSingleEventListener(
-        string $event,
-        array|string $callable,
-        array $before = [],
-        array $after = []
-    ): EventListenerContract {
-        $eventListener = $this->createEventListener($event, $callable, $before, $after);
-        $this->addSingleEventListener($eventListener);
-        return $eventListener;
-    }
-
-    public function addEventListener(EventListenerContract $eventListener): void
-    {
-        $this->eventListeners[$eventListener->getEvent()][] = $eventListener;
-    }
-
-    public function addSingleEventListener(EventListenerContract $eventListener): void
-    {
-        $oldCallable = $eventListener->getCallable();
-        $eventListener->setCallable(function (EventListenerContract $eventListener) use ($oldCallable) {
-            $this->removeEventListener($eventListener);
-            $oldCallable(...func_get_args());
-        });
-        $this->addEventListener($eventListener);
     }
 
     /**
-     * @throws EventListenerNotRegistered
+     * @throws Exception
      */
-    public function removeEventListener(EventListenerContract $eventListener): void
-    {
-        $event = $eventListener->getEvent();
+    public function addEventListener(
+        string $event,
+        callable $eventListener,
+        array $before = [],
+        array $after = []
+    ): callable {
+        if (!isset($this->eventListeners[$event])) {
+            $this->eventListeners[$event] = [$eventListener];
+        } else {
+            $position = count($this->eventListeners[$event]);
+            $min = INF;
 
-        foreach ($this->eventListeners[$event] ?? [] as $i => $listener) {
-            if ($listener == $eventListener) {
-                unset($this->eventListeners[$event][$i]);
-                return;
+            foreach ($before as $beforeEventListener) {
+                if ($beforeEventListener == '*') {
+                    $min = 0;
+                } else {
+                    $index = array_search($beforeEventListener, $this->eventListeners[$event]);
+                    if ($index !== false) {
+                        $min = min($position, $index - 1);
+                    }
+                }
+                $position = $min;
             }
-        }
 
-        throw new EventListenerNotRegistered($eventListener);
+            foreach ($after as $afterEventListener) {
+                $index = array_search($afterEventListener, $this->eventListeners[$event]);
+                if ($index !== false) {
+                    $position = max($position, $index + 1);
+                }
+            }
+
+            if ($position > $min) {
+                throw new Exception('Invalid event listener ruleset');
+            }
+
+            array_splice($this->eventListeners[$event], $position, 0, [$eventListener]);
+        }
+        return $eventListener;
+    }
+
+    public function addSingleEventListener(
+        string $event,
+        callable $eventListener,
+        array $before = [],
+        array $after = []
+    ): callable {
+        $wrapper = function (...$args) use ($event, $eventListener, &$wrapper) {
+            $success = $this->removeEventListener($event, $wrapper);
+            if (!$success) {
+                throw new Exception('Unable to remove event listener');
+            }
+            return $eventListener(...$args);
+        };
+        return $this->addEventListener($event, $wrapper, $before, $after);
+    }
+
+    public function removeEventListener(string $event, callable $eventListener): bool
+    {
+        $key = array_search($eventListener, $this->eventListeners[$event]);
+        $success = $key !== false;
+        if ($success) {
+            unset($this->eventListeners[$event][$key]);
+        }
+        return $success;
     }
 
     // todo: replace object with BaseEventMessage class?
-    public function dispatch(object $message): void
+    public function dispatch(object $event): void
     {
-        $class = get_class($message);
+        $class = get_class($event);
 
-        // sort
-        $this->sortListeners($class);
-
-        foreach ($this->eventListeners[$class] ?? [] as $listener) {
-            $this->container->call($listener->getCallable(), [
-                $class => $message,
-                EventListenerContract::class => $listener,
-            ]);
+        foreach ($this->eventListeners[$class] ?? [] as $eventListener) {
+            $this->container->call($eventListener, [$class => $event]);
         }
-    }
-
-    protected function sortListeners(string $class): void
-    {
-        //        $sorted = [];
-        //        while (true) {
-        //            foreach($this->events[$class][$action] as $listener) {
-        //                $afterClasses = $listener->getAfter();
-        //                foreach ($afterClasses as $afterClass) {
-        //                    if (!in_array($afterClass, $sorted)) {
-        //                        continue 2;
-        //                    }
-        //                }
-        //            }
-        //        }
     }
 }

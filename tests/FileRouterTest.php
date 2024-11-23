@@ -2,10 +2,8 @@
 
 namespace Diana\Tests;
 
-use Diana\Contracts\EventListenerContract;
 use Diana\Contracts\RouteContract;
 use Diana\IO\ConsoleRequest;
-use Diana\IO\Event\NullEventListener;
 use Diana\IO\Event\NullEventManager;
 use Diana\IO\HttpRequest;
 use Diana\Router\Attributes\Get;
@@ -37,7 +35,6 @@ class FileRouterTest extends TestCase
     {
         $container = new IlluminateContainer();
         $container->singleton(RouteContract::class, Route::class);
-        $container->singleton(EventListenerContract::class, NullEventListener::class);
         $this->router = new FileRouter($container, new NullEventManager($container));
     }
 

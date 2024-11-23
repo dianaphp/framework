@@ -3,7 +3,6 @@
 namespace Diana\IO\Event;
 
 use Diana\Contracts\ContainerContract;
-use Diana\Contracts\EventListenerContract;
 use Diana\Contracts\EventManagerContract;
 use Diana\Runtime\Framework;
 
@@ -14,53 +13,30 @@ class NullEventManager implements EventManagerContract
     ) {
     }
 
-    public function createEventListener(
+    public function addEventListener(
         string $event,
-        array|string $callable,
+        callable $eventListener,
         array $before = [],
         array $after = []
-    ): EventListenerContract {
-        return $this->container->make(
-            EventListenerContract::class,
-            compact('event', 'callable', 'before', 'after')
-        );
-    }
-
-    public function addNewEventListener(
-        string $event,
-        array|string $callable,
-        array $before = [],
-        array $after = []
-    ): EventListenerContract {
-        $eventListener = $this->createEventListener($event, $callable, $before, $after);
-        $this->addEventListener($eventListener);
+    ): callable {
         return $eventListener;
     }
 
-    public function addNewSingleEventListener(
+    public function addSingleEventListener(
         string $event,
-        array|string $callable,
+        callable $eventListener,
         array $before = [],
         array $after = []
-    ): EventListenerContract {
-        $eventListener = $this->createEventListener($event, $callable, $before, $after);
-        $this->addSingleEventListener($eventListener);
+    ): callable {
         return $eventListener;
     }
 
-    public function addEventListener(EventListenerContract $eventListener): void
+    public function dispatch(object $event): void
     {
     }
 
-    public function addSingleEventListener(EventListenerContract $eventListener): void
+    public function removeEventListener(string $event, callable $eventListener): bool
     {
-    }
-
-    public function removeEventListener(EventListenerContract $eventListener): void
-    {
-    }
-
-    public function dispatch(object $message): void
-    {
+        return true;
     }
 }
