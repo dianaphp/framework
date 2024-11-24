@@ -12,10 +12,10 @@ use Diana\Contracts\RouteContract;
 use Diana\Contracts\RouterContract;
 use Diana\Events\BootEvent;
 use Diana\Events\RegisterPackageEvent;
+use Diana\Events\ShutdownEvent;
 use Diana\IO\ConsoleRequest;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Pipeline;
-use Diana\IO\Request;
 use Diana\IO\Response;
 use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\RouteNotFoundException;
@@ -60,6 +60,8 @@ class Framework
         $this->registerBindings();
         $this->runModules();
         $this->setupDrivers();
+
+        $this->eventManager->dispatch(new BootEvent());
 
         $this->registerPackage($this->config->get('entryPoint'));
     }
@@ -117,9 +119,6 @@ class Framework
         $this->container->instance(ContainerContract::class, $this->container);
         $this->container->instance(Framework::class, $this);
         $this->container->instance(ClassLoader::class, $this->loader);
-
-        // TODO: contextual binding based on $sapi, check capture method
-        $this->container->instance(RequestContract::class, Request::capture());
     }
 
     public function runModules(): void
@@ -143,41 +142,13 @@ class Framework
     }
 
     /**
-     * @throws NotFoundExceptionInterface
-     * @throws ContainerExceptionInterface
      * @throws UnexpectedOutputTypeException
      */
-    public function boot(): void
-    {
-        $this->eventManager->dispatch(new BootEvent());
-
-        $buffer = fopen($this->config->get('output'), 'a');
-
-        $request = $this->container->get(RequestContract::class);
-        $response = $this->handleRequest($request);
-
-        $status = $response->getStatusCode();
-//        try {
-            http_response_code($status);
-//        } catch (ErrorException $e) {
-            // todo: enable for debugging in case we want to dump something before the response code is set
-            // use logger here
-//        }
-
-        fwrite($buffer, $response);
-        fclose($buffer);
-
-        $this->terminate($status);
-    }
-
-    /**
-     * @throws UnexpectedOutputTypeException
-     */
-    public function handleRequest(Request $request): Response
+    public function generateResponse(RequestContract $request): Response
     {
         try {
             $route = $this->router->resolve($request);
-            $statusCode = $this->config->get('sapi') == 'cli' ? 0 : 200;
+            $statusCode = $request->getDefaultStatusCode();
         } catch (RouteNotFoundException) {
             $statusCode = 404;
             $route = $this->router->getErrorRoute();
@@ -217,29 +188,43 @@ class Framework
     /**
      * @throws UnexpectedOutputTypeException
      */
+    public function handleRequest(RequestContract $request): void
+    {
+        $this->container->instance(RequestContract::class, $request);
+
+        $response = $this->generateResponse($request);
+//        $this->container->instance(ResponseContract::class, $response);
+        $status = $response->getStatusCode();
+
+//        try {
+            http_response_code($status);
+//        } catch (ErrorException $e) {
+            // todo: enable for debugging in case we want to dump something before the response code is set
+            // use logger here
+//        }
+
+        $buffer = fopen($this->config->get('output'), 'a');
+        fwrite($buffer, $response);
+        fclose($buffer);
+
+        $this->shutdown($status);
+    }
+
+    /**
+     * @throws UnexpectedOutputTypeException
+     */
     public function runCommand(string $command): Response
     {
         $args = explode(' ', $command);
         $command = array_shift($args);
-        return $this->handleRequest(new ConsoleRequest($command, $args));
+        return $this->generateResponse(new ConsoleRequest($command, $args));
     }
 
-    protected array $terminatingCallbacks = [];
-    public function terminating(Closure $callback): Framework
+    public function shutdown(int $status = 0): void
     {
-        $this->terminatingCallbacks[] = $callback;
-        return $this;
-    }
+        $this->eventManager->dispatch(new ShutdownEvent($status));
 
-    public function terminate(?int $status = null): void
-    {
-        foreach ($this->terminatingCallbacks as $terminatingCallback) {
-            $terminatingCallback();
-        }
-
-        if ($status !== null) {
-            exit($status);
-        }
+        exit($status);
     }
 
     public function path(string $path): string
@@ -255,7 +240,6 @@ class Framework
     {
         return [
             'output' => 'php://output',
-            'sapi' => PHP_SAPI, // TODO: outsource to env.php
             'cachePath' => 'tmp',
             'aliases' => [],
             'singleton' => [

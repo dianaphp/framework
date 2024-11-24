@@ -83,4 +83,9 @@ class HttpRequest extends Request
     {
         return $this->route;
     }
+
+    public function getDefaultStatusCode(): int
+    {
+        return 200;
+    }
 }

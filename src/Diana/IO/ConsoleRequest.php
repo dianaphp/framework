@@ -19,4 +19,9 @@ class ConsoleRequest extends Request
     {
         return $this->command;
     }
+
+    public function getDefaultStatusCode(): int
+    {
+        return 0;
+    }
 }

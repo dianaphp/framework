@@ -10,6 +10,8 @@ abstract class Request implements RequestContract
     {
     }
 
+    abstract public function getDefaultStatusCode(): int;
+
     public static function capture(): Request
     {
         if (php_sapi_name() === 'cli') {
@@ -36,10 +38,5 @@ abstract class Request implements RequestContract
                 $headers
             );
         }
-    }
-
-    public function getResource(): string
-    {
-        return $this->resource;
     }
 }
