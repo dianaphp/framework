@@ -4,9 +4,14 @@ namespace Diana\Runtime;
 
 use Closure;
 use Composer\Autoload\ClassLoader;
+use Diana\Cache\JsonFileCache;
+use Diana\Cache\PhpFileCache;
+use Diana\Config\FileConfig;
+use Diana\Contracts\CacheContract;
 use Diana\Contracts\ConfigContract;
 use Diana\Contracts\ContainerContract;
 use Diana\Contracts\EventManagerContract;
+use Diana\Contracts\RendererContract;
 use Diana\Contracts\RequestContract;
 use Diana\Contracts\RouteContract;
 use Diana\Contracts\RouterContract;
@@ -14,11 +19,15 @@ use Diana\Events\BootEvent;
 use Diana\Events\RegisterPackageEvent;
 use Diana\Events\ShutdownEvent;
 use Diana\IO\ConsoleRequest;
+use Diana\IO\Event\EventManager;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Pipeline;
 use Diana\IO\Response;
+use Diana\Rendering\Drivers\BladeRenderer;
 use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\RouteNotFoundException;
+use Diana\Router\FileRouterCached;
+use Diana\Router\Route;
 use Diana\Runtime\KernelModules\ConfigurePhp;
 use Diana\Runtime\KernelModules\ExceptionHandler;
 use Diana\Runtime\KernelModules\ProvideAliases;
@@ -58,12 +67,13 @@ class Framework
         $this->setupConfig($config);
         $this->instantiateContainer();
         $this->registerBindings();
+        // ab hier kernel
         $this->runModules();
         $this->setupDrivers();
 
-        $this->eventManager->dispatch(new BootEvent());
-
         $this->registerPackage($this->config->get('entryPoint'));
+
+        $this->eventManager->dispatch(new BootEvent());
     }
 
     protected function setupConfig(Closure|ConfigContract $config): void
@@ -197,10 +207,10 @@ class Framework
         $status = $response->getStatusCode();
 
 //        try {
-            http_response_code($status);
+        http_response_code($status);
 //        } catch (ErrorException $e) {
-            // todo: enable for debugging in case we want to dump something before the response code is set
-            // use logger here
+        // todo: enable for debugging in case we want to dump something before the response code is set
+        // use logger here
 //        }
 
         $buffer = fopen($this->config->get('output'), 'a');
@@ -243,17 +253,17 @@ class Framework
             'cachePath' => 'tmp',
             'aliases' => [],
             'singleton' => [
-                \Diana\Contracts\ContainerContract::class => \Diana\Runtime\IlluminateContainer::class,
-                \Diana\Contracts\ConfigContract::class => \Diana\Config\FileConfig::class,
-                \Diana\Contracts\CacheContract::class => \Diana\Cache\JsonFileCache::class,
-                \Diana\Contracts\RouterContract::class => \Diana\Router\FileRouterCached::class,
-                \Diana\Contracts\RouteContract::class => \Diana\Router\Route::class,
-                \Diana\Contracts\RendererContract::class => \Diana\Rendering\Drivers\BladeRenderer::class,
-                \Diana\Contracts\EventManagerContract::class => \Diana\IO\Event\EventManager::class
+                ContainerContract::class => IlluminateContainer::class,
+                ConfigContract::class => FileConfig::class,
+                CacheContract::class => JsonFileCache::class,
+                RouterContract::class => FileRouterCached::class,
+                RouteContract::class => Route::class,
+                RendererContract::class => BladeRenderer::class,
+                EventManagerContract::class => EventManager::class
             ],
             'contextualBindings' => [
-                \Diana\Router\FileRouterCached::class => [
-                    \Diana\Contracts\CacheContract::class => \Diana\Cache\PhpFileCache::class
+                FileRouterCached::class => [
+                    CacheContract::class => PhpFileCache::class
                 ]
             ],
             'entryPoint' => '\App\AppModule',

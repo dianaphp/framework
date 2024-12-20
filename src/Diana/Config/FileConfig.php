@@ -2,11 +2,11 @@
 
 namespace Diana\Config;
 
+use Diana\Contracts\ConfigContract;
 use Diana\Runtime\Framework;
 use Diana\Support\Exceptions\FileNotFoundException;
 use Diana\Support\Helpers\Filesystem;
 use Diana\Support\Serializer\ArraySerializer;
-use Diana\Contracts\ConfigContract;
 use Illuminate\Contracts\Container\ContextualAttribute;
 
 class FileConfig implements ConfigContract, ContextualAttribute
@@ -18,7 +18,7 @@ class FileConfig implements ConfigContract, ContextualAttribute
 
     public function __construct(protected Framework $app, protected string $name = 'cfg/app')
     {
-        $this->path = $this->app->path($name . '.php');
+        $this->path = $this->app->path($name . '.conf.php');
     }
 
     // TODO: Outsource
@@ -62,15 +62,12 @@ class FileConfig implements ConfigContract, ContextualAttribute
         return $key ? $this->default[$key] : $this->default;
     }
 
-    /**
-     * @throws FileNotFoundException
-     */
     protected function enforceIntegrity(): void
     {
         if (!isset($this->config)) {
-            if (file_exists($this->path)) {
+            try {
                 $this->config = Filesystem::getRequire($this->path);
-            } else {
+            } catch (FileNotFoundException) {
                 $this->config = [];
             }
         }

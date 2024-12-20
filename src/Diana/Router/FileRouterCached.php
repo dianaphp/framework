@@ -39,8 +39,8 @@ class FileRouterCached extends FileRouter
     public function generateCache(): void
     {
         $this->cache->set(self::CACHE_KEY, [
-            "routes" => $this->serializeRoutes($this->routes),
-            "commands" => $this->serializeCommands($this->commands)
+            "routes" => $this->serializeRoutes(),
+            "commands" => $this->serializeCommands()
         ]);
     }
 
@@ -77,13 +77,10 @@ class FileRouterCached extends FileRouter
         return $unserialized;
     }
 
-    /**
-     * @param RouteContract[][] $routes
-     */
-    public function serializeRoutes(array $routes): array
+    public function serializeRoutes(): array
     {
         $serialized = [];
-        foreach ($routes as $method => $routesByMethod) {
+        foreach ($this->routes as $method => $routesByMethod) {
             foreach ($routesByMethod as $routePath => $routeInstance) {
                 $serialized[$method][$routePath] = $routeInstance->toArray();
             }
@@ -91,15 +88,8 @@ class FileRouterCached extends FileRouter
         return $serialized;
     }
 
-    /**
-     * @param RouteContract[] $commands
-     */
-    public function serializeCommands(array $commands): array
+    public function serializeCommands(): array
     {
-        $serialized = [];
-        foreach ($commands as $name => $command) {
-            $serialized[$name] = $command->toArray();
-        }
-        return $serialized;
+        return array_map(fn (RouteContract $command) => $command->toArray(), $this->commands);
     }
 }
