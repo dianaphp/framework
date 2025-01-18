@@ -3,10 +3,8 @@
 namespace Diana\Tests;
 
 use Diana\Contracts\RouteContract;
-use Diana\IO\ConsoleRequest;
-use Diana\IO\Event\NullEventManager;
+use Diana\IO\Event\NullDispatcher;
 use Diana\IO\HttpRequest;
-use Diana\Router\Attributes\Get;
 use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\DuplicateRouteException;
 use Diana\Router\Exceptions\MissingArgumentsException;
@@ -16,14 +14,11 @@ use Diana\Router\FileRouter;
 use Diana\Router\Route;
 use Diana\Runtime\IlluminateContainer;
 use Diana\Tests\Controllers\AllMethodsController;
-use Diana\Tests\Controllers\CommandController;
 use Diana\Tests\Controllers\DuplicateRouteController;
 use Diana\Tests\Controllers\GetMethodController;
 use Diana\Tests\Controllers\MultipleRouteControllerWithPrefix;
-use Diana\Tests\Controllers\ParamController;
 use Diana\Tests\Controllers\PlainController;
 use Diana\Tests\Controllers\SingleRouteControllerWithoutMiddleware;
-use Diana\Tests\Middleware\MockMiddleware;
 use PHPUnit\Framework\TestCase;
 use ReflectionException;
 
@@ -35,7 +30,7 @@ class FileRouterTest extends TestCase
     {
         $container = new IlluminateContainer();
         $container->singleton(RouteContract::class, Route::class);
-        $this->router = new FileRouter($container, new NullEventManager($container));
+        $this->router = new FileRouter($container, new NullDispatcher($container));
     }
 
     public function tearDown(): void

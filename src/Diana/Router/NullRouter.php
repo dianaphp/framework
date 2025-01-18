@@ -2,20 +2,20 @@
 
 namespace Diana\Router;
 
-use Diana\Contracts\ContainerContract;
+use Diana\Contracts\Core\Container;
 use Diana\Contracts\RequestContract;
-use Diana\Contracts\RouteContract;
-use Diana\Contracts\RouterContract;
+use Diana\Contracts\Router\Route;
+use Diana\Contracts\Router\Router;
 
-class NullRouter implements RouterContract
+class NullRouter implements Router
 {
-    public function __construct(protected ContainerContract $container)
+    public function __construct(protected Container $container)
     {
     }
 
-    public function resolve(RequestContract $request): RouteContract
+    public function resolve(RequestContract $request): Route
     {
-        return $this->container->make(RouteContract::class, [
+        return $this->container->make(Route::class, [
             'controller' => self::class,
             'method' => 'shadow'
         ]);
@@ -25,12 +25,12 @@ class NullRouter implements RouterContract
     {
     }
 
-    public function getErrorRoute(): ?RouteContract
+    public function getErrorRoute(): ?Route
     {
         return null;
     }
 
-    public function getErrorCommandRoute(): ?RouteContract
+    public function getErrorCommandRoute(): ?Route
     {
         return null;
     }

@@ -2,10 +2,10 @@
 
 namespace Diana\Router;
 
-use Diana\Contracts\ContainerContract;
-use Diana\Contracts\EventManagerContract;
-use Diana\Contracts\RouteContract;
-use Diana\Contracts\RouterContract;
+use Diana\Contracts\Core\Container;
+use Diana\Contracts\Event\Dispatcher;
+use Diana\Contracts\Router\Route as RouteContract;
+use Diana\Contracts\Router\Router as RouterContract;
 use Diana\Events\RegisterPackageEvent;
 use Diana\Router\Attributes\Command;
 use Diana\Router\Attributes\CommandErrorHandler;
@@ -22,10 +22,10 @@ use ReflectionMethod;
 class FileRouter extends Router implements RouterContract
 {
     public function __construct(
-        protected ContainerContract $container,
-        EventManagerContract $eventManager
+        protected Container $container,
+        Dispatcher $dispatcher
     ) {
-        $eventManager->addEventListener(RegisterPackageEvent::class, [$this, 'handlePackage'], ['*']);
+        $dispatcher->addEventListener(RegisterPackageEvent::class, [$this, 'handlePackage'], ['*']);
     }
 
     /**

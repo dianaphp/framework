@@ -2,17 +2,17 @@
 
 namespace Diana\IO\Event;
 
-use Diana\Contracts\ContainerContract;
-use Diana\Contracts\EventManagerContract;
+use Diana\Contracts\Core\Container;
+use Diana\Contracts\Event\Dispatcher as DispatcherContract;
 use Diana\Events\RegisterPackageEvent;
+use Diana\Framework\Core\Application;
 use Diana\IO\Event\Attributes\EventListener as EventListenerAttribute;
-use Diana\Runtime\Framework;
 use Exception;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
 
-class EventManager implements EventManagerContract
+class Dispatcher implements DispatcherContract
 {
     /**
      * @var callable[][] $eventListeners
@@ -23,8 +23,8 @@ class EventManager implements EventManagerContract
      * @throws Exception
      */
     public function __construct(
-        protected Framework $app,
-        protected ContainerContract $container
+        protected Application $app,
+        protected Container $container
     ) {
         $this->addEventListener(RegisterPackageEvent::class, [$this, 'loadEventListeners'], ['*']);
     }

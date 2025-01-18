@@ -2,12 +2,9 @@
 
 namespace Diana\Runtime\KernelModules;
 
-use Closure;
-use Diana\Contracts\ConfigContract;
+use Diana\Config\Config;
 use Diana\Interfaces\ExceptionHandlerInterface;
-use Diana\Runtime\Attributes\Config;
 use ErrorException;
-use Exception;
 use Throwable;
 use Whoops\Handler\PlainTextHandler;
 use Whoops\Handler\PrettyPageHandler;
@@ -17,7 +14,7 @@ class ExceptionHandler implements KernelModule
 {
     private array $handlers = [];
 
-    public function __construct(#[Config('cfg/framework')] protected ConfigContract $config)
+    public function __construct(#[Config('framework')] protected Config $config)
     {
 //        $this->config->addDefault(['exceptionHandlers' => []]);
     }

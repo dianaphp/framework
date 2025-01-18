@@ -1,25 +1,25 @@
 <?php
 
-namespace Diana\Runtime;
+namespace Diana\Framework\Core;
 
-use Closure;
 use Composer\Autoload\ClassLoader;
 use Diana\Cache\JsonFileCache;
 use Diana\Cache\PhpFileCache;
+use Diana\Config\Config;
 use Diana\Config\FileConfig;
-use Diana\Contracts\CacheContract;
-use Diana\Contracts\ConfigContract;
-use Diana\Contracts\ContainerContract;
-use Diana\Contracts\EventManagerContract;
+use Diana\Contracts\Cache\Cache;
+use Diana\Contracts\Config\Config as ConfigContract;
+use Diana\Contracts\Core\Container;
+use Diana\Contracts\Event\Dispatcher;
 use Diana\Contracts\RendererContract;
 use Diana\Contracts\RequestContract;
-use Diana\Contracts\RouteContract;
-use Diana\Contracts\RouterContract;
+use Diana\Contracts\Router\Route as RouteContract;
+use Diana\Contracts\Router\Router;
 use Diana\Events\BootEvent;
 use Diana\Events\RegisterPackageEvent;
 use Diana\Events\ShutdownEvent;
 use Diana\IO\ConsoleRequest;
-use Diana\IO\Event\EventManager;
+use Diana\IO\Event\Dispatcher as DispatcherDriver;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Pipeline;
 use Diana\IO\Response;
@@ -28,27 +28,22 @@ use Diana\Router\Exceptions\CommandNotFoundException;
 use Diana\Router\Exceptions\RouteNotFoundException;
 use Diana\Router\FileRouterCached;
 use Diana\Router\Route;
-use Diana\Runtime\KernelModules\ConfigurePhp;
+use Diana\Runtime\IlluminateContainer;
 use Diana\Runtime\KernelModules\ExceptionHandler;
 use Diana\Runtime\KernelModules\ProvideAliases;
-use Diana\Support\Helpers\Data;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
-class Framework
+class Application
 {
-    protected string $frameworkPath;
-
-    protected ContainerContract $container;
-    protected ConfigContract $config;
-    protected EventManagerContract $eventManager;
-    protected RouterContract $router;
+    protected Container $container;
+    protected Dispatcher $dispatcher;
+    protected Router $router;
 
     protected array $middleware = [];
 
     protected array $modules = [
         ExceptionHandler::class,
-        ConfigurePhp::class,
         ProvideAliases::class
     ];
 
@@ -58,50 +53,25 @@ class Framework
      */
     public function __construct(
         protected string $appPath,
-        protected string $configFolder,
         protected ClassLoader $loader,
-        Closure|ConfigContract $config
+        protected Config $config
     ) {
-        $this->frameworkPath = dirname(__DIR__, 3);
+        $this->config->addDefault($this->defaultConfig());
 
-        $this->setupConfig($config);
-        $this->instantiateContainer();
-        $this->registerBindings();
+        $this->setupContainer();
         // ab hier kernel
         $this->runModules();
         $this->setupDrivers();
 
         $this->registerPackage($this->config->get('entryPoint'));
 
-        $this->eventManager->dispatch(new BootEvent());
+        $this->dispatcher->dispatch(new BootEvent());
     }
 
-    protected function setupConfig(Closure|ConfigContract $config): void
+    protected function setupContainer(): void
     {
-        $this->config = Data::valueOf($config, $this);
-        $this->config->addDefault($this->getDefaultConfig());
-    }
+        $this->container = new ($this->config->get('singleton')[Container::class])();
 
-    /**
-     * @throws ContainerExceptionInterface
-     * @throws NotFoundExceptionInterface
-     */
-    protected function setupDrivers(): void
-    {
-        // todo: $this->logger = $this->container->get(LoggerContract::class);
-        $this->eventManager = $this->container->get(EventManagerContract::class);
-        $this->router = $this->container->get(RouterContract::class);
-    }
-
-    protected function instantiateContainer(): void
-    {
-        $singleton = $this->config->get('singleton');
-        $containerClass = $singleton[ContainerContract::class];
-        $this->container = new $containerClass();
-    }
-
-    protected function registerBindings(): void
-    {
         foreach ($this->config->get('contextualBindings') as $class => $bindings) {
             foreach ($bindings as $abstract => $concrete) {
                 $this->container->addContextualBinding($class, $abstract, $concrete);
@@ -126,8 +96,12 @@ class Framework
             $this->container->singleton($abstract, $concrete);
         }
 
-        $this->container->instance(ContainerContract::class, $this->container);
-        $this->container->instance(Framework::class, $this);
+        foreach ($this->config->get('containerAliases') as $abstract => $alias) {
+            $this->container->alias($abstract, $alias);
+        }
+
+        $this->container->instance(Container::class, $this->container);
+        $this->container->instance(Application::class, $this);
         $this->container->instance(ClassLoader::class, $this->loader);
     }
 
@@ -139,6 +113,17 @@ class Framework
         }
     }
 
+    /**
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
+    protected function setupDrivers(): void
+    {
+        // todo: $this->logger = $this->container->get(LoggerContract::class);
+        $this->dispatcher = $this->container->get(Dispatcher::class);
+        $this->router = $this->container->get(Router::class);
+    }
+
     public function registerPackage(string $package, bool $force = false): void
     {
         if (!$force && $this->container->has($package)) {
@@ -148,7 +133,7 @@ class Framework
         $instance = $this->container->make($package);
         $this->container->instance($package, $instance);
 
-        $this->eventManager->dispatch(new RegisterPackageEvent($instance, $force));
+        $this->dispatcher->dispatch(new RegisterPackageEvent($instance, $force));
     }
 
     /**
@@ -232,7 +217,7 @@ class Framework
 
     public function shutdown(int $status = 0): void
     {
-        $this->eventManager->dispatch(new ShutdownEvent($status));
+        $this->dispatcher->dispatch(new ShutdownEvent($status));
 
         exit($status);
     }
@@ -246,25 +231,28 @@ class Framework
         return join(DIRECTORY_SEPARATOR, $slugs);
     }
 
-    protected function getDefaultConfig(): array
+    protected function defaultConfig(): array
     {
         return [
             'output' => 'php://output',
             'cachePath' => 'tmp',
             'aliases' => [],
             'singleton' => [
-                ContainerContract::class => IlluminateContainer::class,
-                ConfigContract::class => FileConfig::class,
-                CacheContract::class => JsonFileCache::class,
-                RouterContract::class => FileRouterCached::class,
+                Container::class => IlluminateContainer::class,
+                Config::class => FileConfig::class,
+                Cache::class => JsonFileCache::class,
+                Router::class => FileRouterCached::class,
                 RouteContract::class => Route::class,
                 RendererContract::class => BladeRenderer::class,
-                EventManagerContract::class => EventManager::class
+                Dispatcher::class => DispatcherDriver::class
             ],
             'contextualBindings' => [
                 FileRouterCached::class => [
-                    CacheContract::class => PhpFileCache::class
+                    Cache::class => PhpFileCache::class
                 ]
+            ],
+            'containerAliases' => [
+                Config::class => ConfigContract::class
             ],
             'entryPoint' => '\App\AppModule',
             'env' => 'dev',

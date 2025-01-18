@@ -2,7 +2,7 @@
 
 namespace Diana\Router;
 
-use Diana\Contracts\RouteContract;
+use Diana\Contracts\Router\Route as RouteContract;
 
 class Route implements RouteContract
 {
@@ -34,6 +34,7 @@ class Route implements RouteContract
     {
         $this->params = $params;
     }
+
     public function getParameters(): array
     {
         return $this->params;
@@ -43,6 +44,7 @@ class Route implements RouteContract
     {
         $this->segments = $segments;
     }
+
     public function getSegments(): array
     {
         return $this->segments;

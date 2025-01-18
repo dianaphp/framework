@@ -3,11 +3,10 @@
 namespace Diana\Runtime\KernelModules;
 
 use Diana\Cache\FileCache;
-use Diana\Contracts\CacheContract;
-use Diana\Contracts\ConfigContract;
-use Diana\Contracts\ContainerContract;
-use Diana\Runtime\Attributes\Config;
-use Diana\Runtime\Framework;
+use Diana\Config\Config;
+use Diana\Contracts\Cache\Cache;
+use Diana\Contracts\Core\Container;
+use Diana\Framework\Core\Application;
 use Psr\SimpleCache\InvalidArgumentException;
 use ReflectionClass;
 use ReflectionException;
@@ -16,12 +15,12 @@ class ProvideAliases implements KernelModule
 {
     protected const string CACHE_KEY = 'aliases';
 
-    protected CacheContract $cache;
+    protected Cache $cache;
 
     public function __construct(
-        protected Framework $app,
-        ContainerContract $container,
-        #[Config('cfg/framework')] protected ConfigContract $config
+        protected Application $app,
+        Container $container,
+        #[Config('framework')] protected Config $config
     ) {
         // this is hard-coded on purpose, ide cache can only be a file
         $this->cache = $container->make(FileCache::class);

@@ -3,8 +3,7 @@
 namespace Diana\Router;
 
 use Diana\Contracts\RequestContract;
-use Diana\Contracts\RouteContract;
-use Diana\Contracts\RouterContract;
+use Diana\Contracts\Router\Router as RouterContract;
 use Diana\IO\ConsoleRequest;
 use Diana\IO\HttpRequest;
 use Diana\Router\Attributes\CommandErrorHandler;
@@ -17,12 +16,12 @@ use Diana\Support\Helpers\Str;
 abstract class Router implements RouterContract
 {
     /**
-     * @var RouteContract[][] The routes
+     * @var Route[][] The routes
      */
     protected array $routes = [];
 
     /**
-     * @var RouteContract[] The commands
+     * @var Route[] The commands
      */
     protected array $commands = [];
 
@@ -31,7 +30,7 @@ abstract class Router implements RouterContract
      * @throws RouteNotFoundException
      * @throws CommandNotFoundException
      */
-    public function resolve(RequestContract $request): RouteContract
+    public function resolve(RequestContract $request): Route
     {
         if ($request instanceof HttpRequest) {
             return $this->resolveRoute($request->getRoute(), $request->getMethod());
@@ -47,7 +46,7 @@ abstract class Router implements RouterContract
     /**
      * @throws RouteNotFoundException
      */
-    protected function resolveRoute(string $path, string $method): RouteContract
+    protected function resolveRoute(string $path, string $method): Route
     {
         $trim = trim($path, '/');
         $segments = explode('/', $trim);
@@ -79,7 +78,7 @@ abstract class Router implements RouterContract
     /**
      * @throws CommandNotFoundException
      */
-    protected function resolveCommand(string $command, array $args = []): RouteContract
+    protected function resolveCommand(string $command, array $args = []): Route
     {
         if (isset($this->commands[$command])) {
             $route = $this->commands[$command];
@@ -125,12 +124,12 @@ abstract class Router implements RouterContract
         throw new CommandNotFoundException("The command [{$command}] could not have been found.");
     }
 
-    public function getErrorRoute(): ?RouteContract
+    public function getErrorRoute(): ?Route
     {
         return $this->routes['*'][HttpErrorHandler::class] ?? null;
     }
 
-    public function getErrorCommandRoute(): ?RouteContract
+    public function getErrorCommandRoute(): ?Route
     {
         return $this->commands[CommandErrorHandler::class] ?? null;
     }

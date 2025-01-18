@@ -2,13 +2,13 @@
 
 namespace Diana\Runtime;
 
-use Diana\Contracts\ContainerContract;
+use Diana\Contracts\Core\Container;
 use Diana\IO\Pipeline;
 use Diana\IO\Response;
 
 class BindingResolver
 {
-    public function __construct(protected ContainerContract $container)
+    public function __construct(protected Container $container)
     {
     }
 

@@ -2,14 +2,13 @@
 
 namespace Diana\IO\Event;
 
-use Diana\Contracts\ContainerContract;
-use Diana\Contracts\EventManagerContract;
-use Diana\Runtime\Framework;
+use Diana\Contracts\Core\Container;
+use Diana\Contracts\Event\Dispatcher;
 
-class NullEventManager implements EventManagerContract
+class NullDispatcher implements Dispatcher
 {
     public function __construct(
-        protected ContainerContract $container
+        protected Container $container
     ) {
     }
 

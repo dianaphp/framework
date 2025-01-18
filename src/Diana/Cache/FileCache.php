@@ -5,20 +5,18 @@ namespace Diana\Cache;
 use DateInterval;
 use DateMalformedIntervalStringException;
 use DateTime;
-use Diana\Contracts\CacheContract;
-use Diana\Contracts\ConfigContract;
-use Diana\Runtime\Attributes\Config;
-use Diana\Runtime\Framework;
-use Diana\Support\Wrapper\ArrayWrapper;
+use Diana\Config\Config;
+use Diana\Contracts\Cache\Cache;
+use Diana\Framework\Core\Application;
 
-class FileCache implements CacheContract
+class FileCache implements Cache
 {
     protected string $cacheExtension = '.cache.txt';
     protected string $metaExtension = '.meta.txt';
 
     public function __construct(
-        #[Config('cfg/framework')] protected ConfigContract $config,
-        protected Framework $app
+        #[Config('framework')] protected Config $config,
+        protected Application $app
     ) {
     }
 
@@ -122,7 +120,7 @@ class FileCache implements CacheContract
         $success = true;
         arr(scandir($this->getCacheDir()))
             ->diff(['.', '..'])
-            ->filter(fn ($file) => is_file($this->getCacheDir() . DIRECTORY_SEPARATOR . $file))
+            ->filter(fn($file) => is_file($this->getCacheDir() . DIRECTORY_SEPARATOR . $file))
             ->each(function ($file) use (&$success) {
                 $success = $success && unlink($this->getCacheDir() . DIRECTORY_SEPARATOR . $file);
             });
@@ -142,7 +140,7 @@ class FileCache implements CacheContract
     /**
      * @throws DateMalformedIntervalStringException
      */
-    public function setMultiple(iterable $values, \DateInterval|int|null $ttl = null): bool
+    public function setMultiple(iterable $values, DateInterval|int|null $ttl = null): bool
     {
         $expiration = $this->calculateExpiration(new DateTime(), $ttl);
         $success = true;

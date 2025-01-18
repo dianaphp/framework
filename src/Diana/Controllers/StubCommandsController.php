@@ -2,14 +2,14 @@
 
 namespace Diana\Controllers;
 
+use Diana\Framework\Core\Application;
 use Diana\IO\Response;
 use Diana\Router\Attributes\Command;
-use Diana\Runtime\Framework;
 
 class StubCommandsController
 {
     #[Command("create-package", "name")]
-    public function makeController(Framework $app, string $name): ?Response
+    public function makeController(Application $app, string $name): ?Response
     {
         // TODO: Outsource
         $stub = str_replace(

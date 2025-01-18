@@ -2,9 +2,9 @@
 
 namespace Diana\Cache;
 
-use Diana\Contracts\CacheContract;
+use Diana\Contracts\Cache\Cache;
 
-class JsonFileCache extends FileCache implements CacheContract
+class JsonFileCache extends FileCache implements Cache
 {
     public function getCacheExtension(): string
     {

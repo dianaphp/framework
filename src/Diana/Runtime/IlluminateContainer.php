@@ -3,7 +3,7 @@
 namespace Diana\Runtime;
 
 use Closure;
-use Diana\Contracts\ContainerContract;
+use Diana\Contracts\Core\Container as ContainerContract;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Container\BindingResolutionException;
 

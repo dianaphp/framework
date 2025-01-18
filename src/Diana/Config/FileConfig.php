@@ -2,69 +2,56 @@
 
 namespace Diana\Config;
 
-use Diana\Contracts\ConfigContract;
-use Diana\Runtime\Framework;
+use Diana\Contracts\Config\Config as ConfigContract;
 use Diana\Support\Exceptions\FileNotFoundException;
 use Diana\Support\Helpers\Filesystem;
 use Diana\Support\Serializer\ArraySerializer;
+use Exception;
 use Illuminate\Contracts\Container\ContextualAttribute;
+use RuntimeException;
 
-class FileConfig implements ConfigContract, ContextualAttribute
+class FileConfig extends Config implements ConfigContract, ContextualAttribute
 {
+    protected static string $directory;
     protected string $path;
+    private bool $loaded = false;
 
-    protected ?array $config = null;
-    protected array $default = [];
-
-    public function __construct(protected Framework $app, protected string $name = 'cfg/app')
+    public function __construct(protected string $name)
     {
-        $this->path = $this->app->path($name . '.conf.php');
-    }
-
-    // TODO: Outsource
-    protected function arrayMergeRecursiveDistinct(array $array1, array $array2): array
-    {
-        $merged = $array1;
-
-        foreach ($array2 as $key => $value) {
-            if (is_array($value) && isset($merged[$key]) && is_array($merged[$key])) {
-                $merged[$key] = $this->arrayMergeRecursiveDistinct($merged[$key], $value);
-            } else {
-                $merged[$key] = $value;
-            }
+        if (!isset(self::$directory)) {
+            throw new RuntimeException('Config directory not set');
         }
 
-        return $merged;
+        parent::__construct($name);
+        $this->path = self::$directory . DIRECTORY_SEPARATOR . $name . '.conf.php';
+        if (!is_file($this->path)) {
+            throw new Exception("Config file not found: {$this->path}");
+        }
     }
 
-    /**
-     * @throws FileNotFoundException
-     */
-    public function get(?string $key = null): mixed
+    public function get(string $key, mixed $default = null): mixed
     {
         $this->enforceIntegrity();
-
-        return $key ? $this->config[$key] : $this->config;
+        return parent::get($key, $default);
     }
 
-    /**
-     * @throws FileNotFoundException
-     */
+    public function all(): array
+    {
+        $this->enforceIntegrity();
+        return parent::all();
+    }
+
     public function addDefault(array $default): self
     {
-        $this->default = $this->arrayMergeRecursiveDistinct($this->default, $default);
+        parent::addDefault($default);
         $this->enforceIntegrity();
         return $this;
     }
 
-    public function getDefault(?string $key = null): array
-    {
-        return $key ? $this->default[$key] : $this->default;
-    }
-
     protected function enforceIntegrity(): void
     {
-        if (!isset($this->config)) {
+        if (!$this->loaded) {
+            $this->loaded = true;
             try {
                 $this->config = Filesystem::getRequire($this->path);
             } catch (FileNotFoundException) {
@@ -79,5 +66,10 @@ class FileConfig implements ConfigContract, ContextualAttribute
         }
 
         $this->config = $config;
+    }
+
+    public static function setDirectory(string $directory): void
+    {
+        self::$directory = $directory;
     }
 }
