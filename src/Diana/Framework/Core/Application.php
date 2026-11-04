@@ -156,15 +156,19 @@ class Application
     public function handleRequest(RequestContract $request): void
     {
         $response = $this->generateResponse($request);
-//        $this->container->instance(ResponseContract::class, $response);
         $status = $response->getStatusCode();
 
-//        try {
+        if (PHP_SAPI !== 'cli') {
+            foreach ($response->getHeader() as $name => $values) {
+                $replace = true;
+                foreach ((array) $values as $value) {
+                    header($name . ': ' . $value, $replace);
+                    $replace = false;
+                }
+            }
+        }
+        // Set the status last: PHP may otherwise turn a Location header into a 302.
         http_response_code($status);
-//        } catch (ErrorException $e) {
-        // todo: enable for debugging in case we want to dump something before the response code is set
-        // use logger here
-//        }
 
         $buffer = fopen($this->config->get('output'), 'a');
         fwrite($buffer, $response);

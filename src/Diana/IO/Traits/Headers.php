@@ -4,18 +4,37 @@ namespace Diana\IO\Traits;
 
 trait Headers
 {
-    protected array $headers;
+    protected array $headers = [];
 
     public function setHeader(string|array $header, mixed $value = null): void
     {
-        if (is_array($header))
-            $this->headers = [$header];
-        else
-            $this->headers[$header] = $value;
+        if (is_array($header)) {
+            $this->headers = [];
+            foreach ($header as $name => $value) {
+                $this->setHeader($name, $value);
+            }
+            return;
+        }
+
+        foreach ($this->headers as $name => $_) {
+            if (strcasecmp($name, $header) === 0) {
+                $this->headers[$name] = $value;
+                return;
+            }
+        }
+        $this->headers[$header] = $value;
     }
 
-    public function getHeader(string $header = null): mixed
+    public function getHeader(?string $header = null): mixed
     {
-        return $header ? $this->header[$header] : $this->header;
+        if ($header === null) {
+            return $this->headers;
+        }
+        foreach ($this->headers as $name => $value) {
+            if (strcasecmp($name, $header) === 0) {
+                return $value;
+            }
+        }
+        return null;
     }
 }
