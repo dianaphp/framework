@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.5.12'
           extensions: pdo_sqlite
           tools: composer:v2
       - name: Validate package
@@ -24,4 +24,4 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction --no-scripts
       - name: Run tests
-        run: composer test
+        run: composer test -- --fail-on-warning --fail-on-deprecation

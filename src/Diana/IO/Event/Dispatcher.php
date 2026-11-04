@@ -2,6 +2,7 @@
 
 namespace Diana\IO\Event;
 
+use Closure;
 use Diana\Contracts\Core\Container;
 use Diana\Contracts\Event\Dispatcher as DispatcherContract;
 use Diana\Events\RegisterPackageEvent;
@@ -108,8 +109,8 @@ class Dispatcher implements DispatcherContract
         array $before = [],
         array $after = []
     ): callable {
-        $wrapper = function (...$args) use ($event, $eventListener, &$wrapper) {
-            $success = $this->removeEventListener($event, $wrapper);
+        $wrapper = function (...$args) use ($event, $eventListener) {
+            $success = $this->removeEventListener($event, Closure::getCurrent());
             if (!$success) {
                 throw new Exception('Unable to remove event listener');
             }

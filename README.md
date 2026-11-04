@@ -1,5 +1,7 @@
 ## Diana PHP Framework
 
+Requires PHP **8.5.12 or newer within PHP 8**. Composer enforces `^8.5.12`.
+
 There are plenty of frameworks to choose out there, so which one to go for?
 Or should you rather use plain PHP for the next project, because of all of that unnecessary bloat you don't even need?
 With that in mind, I have been starting to develop Diana, a modular, simple to use, yet powerful framework. Diana aims to be the perfect choice for every project, because you just include the parts you need for your specific app, leaving out all of the bloat that you don't need.

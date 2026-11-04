@@ -124,6 +124,19 @@ class DispatcherTest extends TestCase
         self::assertSame(['once', 'A', 'B', 'A', 'B'], $this->calls);
     }
 
+    public function testSingleListenerIsRemovedBeforeRecursiveDispatch(): void
+    {
+        $event = new stdClass();
+        $this->dispatcher->addSingleEventListener(stdClass::class, function () use ($event): void {
+            $this->calls[] = 'once';
+            $this->dispatcher->dispatch($event);
+        });
+        $this->dispatcher->addEventListener(stdClass::class, $this->listener('regular'));
+
+        $this->dispatcher->dispatch($event);
+        self::assertSame(['once', 'regular', 'regular'], $this->calls);
+    }
+
     public function testFirstListenerIgnoresUnknownReferences(): void
     {
         $unknown = $this->listener('missing');
