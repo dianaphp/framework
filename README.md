@@ -43,10 +43,40 @@ return [
 
 Middleware classes expose `run($request, $next, $output, $data)`; parameters not
 needed by a middleware may be omitted. Closures are also supported. Call
-`$next()` to continue or return a `Response` immediately to stop processing.
+`return $next()` to continue with the current request, or `return $next($request)`
+to forward a replacement request. Later middleware, routing and controller
+injection receive that replacement. A replacement in route middleware keeps the
+already resolved route; it does not trigger routing again.
+Return a `Response` without calling `$next` to stop processing. Later middleware
+is not instantiated and the controller is not called.
 Global middleware wraps the entry point, including its response and error
 fallbacks. A returned `Response` keeps its identity and status; other entry point
 results are wrapped with the request's default status.
+
+```php
+class ExampleMiddleware
+{
+    public function run(RequestContract $request, \Closure $next): Response
+    {
+        if (!$this->isAllowed($request)) {
+            return new Response('Forbidden', 403);
+        }
+
+        $response = $next();
+        // Optionally change the response after downstream processing.
+        return $response;
+    }
+
+    private function isAllowed(RequestContract $request): bool
+    {
+        // Apply your application's authorization rules here.
+        return true;
+    }
+}
+```
+
+Middleware runs in declaration order. Responses return through middleware that
+already called `$next`, in reverse order, including responses from an abort.
 
 The framework has no routing dependency, bindings or dispatch logic. Optional
 packages supply their own entry points, which an application can delegate to.
@@ -81,6 +111,12 @@ usable directly without instantiating their framework module.
 a fresh instance on each resolution, while `singleton` bindings reuse instances.
 Custom implementations of the SDK container must implement `bind()` as well as
 `singleton()`.
+
+The generic pipeline executes each `pipe([...])` call immediately. Put middleware
+and its terminal handler in the same call so that `$next` controls the entire
+chain. Separate `pipe()` calls are independent executions. The end of a chain
+returns the initial output from `send($input, $output, $data)`; an empty list
+preserves it. Each middleware receives `($input, $next, $output, $data)`.
 
 Boot order is: container setup, kernel modules, dispatcher, configured
 `packages`, entry point package, then `BootEvent`. Entry point constructor dependencies

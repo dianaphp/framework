@@ -6,7 +6,7 @@ use Closure;
 use Diana\Contracts\Core\Container;
 use Diana\Contracts\Core\Pipeline as PipelineContract;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
-use Diana\Support\Helpers\Arr;
+use InvalidArgumentException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -51,26 +51,30 @@ class Pipeline implements PipelineContract
 
     public function pipe(Closure|array|string $pipes = []): static
     {
-        /**
-         * @throws ContainerExceptionInterface
-         * @throws NotFoundExceptionInterface
-         */
-        $next = function () use (&$next, &$pipes) {
-            $current = array_shift($pipes);
+        $next = static fn (mixed $input) => $output;
 
-            if ($current) {
-                if ($current instanceof Closure) {
-                    return $current($this->input, $next, $this->output, $this->data);
-                } elseif (is_string($current)) {
-                    $instance = $this->container->get($current);
-                    return $instance->run($this->input, $next, $this->output, $this->data);
+        // Build from the inside out: each middleware owns the rest of the chain.
+        foreach (array_reverse(is_array($pipes) ? $pipes : [$pipes]) as $pipe) {
+            /**
+             * @throws ContainerExceptionInterface
+             * @throws NotFoundExceptionInterface
+             */
+            $next = function (mixed $input) use ($pipe, $next) {
+                $continue = static fn (mixed ...$args) => $next(
+                    $args === [] ? $input : $args[0]
+                );
+
+                if ($pipe instanceof Closure) {
+                    return $pipe($input, $continue, $this->output, $this->data);
+                } elseif (is_string($pipe)) {
+                    return $this->container->get($pipe)->run($input, $continue, $this->output, $this->data);
                 }
-            }
-        };
 
-        $pipes = Arr::wrap($pipes);
+                throw new InvalidArgumentException('Pipeline stages must be closures or middleware class names.');
+            };
+        }
 
-        $this->output = $next();
+        $this->output = $next($this->input);
 
         return $this;
     }

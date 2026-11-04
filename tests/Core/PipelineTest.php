@@ -101,6 +101,34 @@ class PipelineTest extends TestCase
         $this->expectException(UnexpectedOutputTypeException::class);
         $this->container()->make(PipelineContract::class)->pipe(fn () => 'string')->expect('integer');
     }
+
+    public function testNextForwardsInputAndKeepsItForFollowingMiddleware(): void
+    {
+        $result = $this->container()->make(PipelineContract::class)->send('original')->pipe([
+            fn ($input, $next) => $next('replaced'),
+            fn ($input, $next) => $next(),
+            fn ($input) => $input,
+        ])->finalize();
+
+        self::assertSame('replaced', $result);
+    }
+
+    public function testNextCanExplicitlyForwardNull(): void
+    {
+        $result = $this->container()->make(PipelineContract::class)->send('original')->pipe([
+            fn ($input, $next) => $next(null),
+            fn ($input) => $input,
+        ])->finalize();
+
+        self::assertNull($result);
+    }
+
+    public function testMiddlewareCanWrapTheInitialOutputWithoutATerminalPipe(): void
+    {
+        $pipeline = $this->container()->make(PipelineContract::class)->send('input', 'response');
+        self::assertSame('response', $pipeline->pipe([])->finalize());
+        self::assertSame('[response]', $pipeline->pipe(fn ($input, $next) => '[' . $next() . ']')->finalize());
+    }
 }
 
 class GenericTestMiddleware

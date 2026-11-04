@@ -35,8 +35,6 @@ class Application
 
     protected array $registeredPackages = [];
 
-    protected array $middleware = [];
-
     protected array $modules = [
         ExceptionHandler::class,
         ProvideAliases::class
@@ -140,9 +138,9 @@ class Application
         return $this->container->make(PipelineContract::class)
             ->send($request)
             ->pipe([
-                ...$this->middleware,
                 ...$this->config->get('middleware'),
                 function (RequestContract $request): Response {
+                    $this->container->instance(RequestContract::class, $request);
                     $response = $this->container->call([$this->entrypoint, '__invoke'], ['request' => $request]);
                     return $response instanceof Response
                         ? $response
