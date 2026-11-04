@@ -3,7 +3,6 @@
 namespace Diana\Cache;
 
 use DateInterval;
-use DateMalformedIntervalStringException;
 use DateTime;
 use Diana\Config\Config;
 use Diana\Contracts\Cache\Cache;
@@ -11,6 +10,8 @@ use Diana\Framework\Core\Application;
 
 class FileCache implements Cache
 {
+    private const SERIALIZED_PREFIX = "DIANA-CACHE-SERIALIZED\n";
+
     protected string $cacheExtension = '.cache.txt';
     protected string $metaExtension = '.meta.txt';
 
@@ -67,35 +68,47 @@ class FileCache implements Cache
         }
 
         $content = file_get_contents($this->getCacheFileName($key));
-        return $content !== false ? $content : $default;
+        return $content !== false ? $this->decode($content) : $default;
+    }
+
+    protected function encode(mixed $value): string
+    {
+        // Keep ordinary strings verbatim: IDE alias files use this driver too.
+        if (is_string($value) && !str_starts_with($value, self::SERIALIZED_PREFIX)) {
+            return $value;
+        }
+
+        return self::SERIALIZED_PREFIX . serialize($value);
+    }
+
+    protected function decode(string $content): mixed
+    {
+        return str_starts_with($content, self::SERIALIZED_PREFIX)
+            ? unserialize(substr($content, strlen(self::SERIALIZED_PREFIX)))
+            : $content;
     }
 
     public function setByTimestamp(string $key, mixed $value, int $expiration): bool
     {
-        return
-            file_put_contents($this->getCacheFileName($key), $value) &&
-            file_put_contents($this->getMetaFileName($key), $expiration);
+        if ($expiration !== 0 && $expiration <= time()) {
+            return $this->delete($key);
+        }
+
+        return file_put_contents($this->getCacheFileName($key), $this->encode($value)) !== false
+            && file_put_contents($this->getMetaFileName($key), (string) $expiration) !== false;
     }
 
-    /**
-     * @throws DateMalformedIntervalStringException
-     */
     public function calculateExpiration(DateTime $dateTime, int|DateInterval|null $ttl): int
     {
-        if (!$ttl) {
+        if ($ttl === null) {
             return 0;
         }
 
-        if (!$ttl instanceof DateInterval) {
-            $ttl = new DateInterval('P' . (int)$ttl . 'S');
-        }
-
-        return (clone $dateTime)->add($ttl)->getTimestamp();
+        return $ttl instanceof DateInterval
+            ? (clone $dateTime)->add($ttl)->getTimestamp()
+            : $dateTime->getTimestamp() + $ttl;
     }
 
-    /**
-     * @throws DateMalformedIntervalStringException
-     */
     public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): bool
     {
         $expiration = $this->calculateExpiration(new DateTime(), $ttl);
@@ -110,7 +123,7 @@ class FileCache implements Cache
         }
 
         if (file_exists($this->getCacheFileName($key))) {
-            $success = $success && unlink($this->getCacheFileName($key));
+            $success = unlink($this->getCacheFileName($key)) && $success;
         }
         return $success;
     }
@@ -122,7 +135,7 @@ class FileCache implements Cache
             ->diff(['.', '..'])
             ->filter(fn($file) => is_file($this->getCacheDir() . DIRECTORY_SEPARATOR . $file))
             ->each(function ($file) use (&$success) {
-                $success = $success && unlink($this->getCacheDir() . DIRECTORY_SEPARATOR . $file);
+                $success = unlink($this->getCacheDir() . DIRECTORY_SEPARATOR . $file) && $success;
             });
 
         return $success;
@@ -137,15 +150,12 @@ class FileCache implements Cache
         return $values;
     }
 
-    /**
-     * @throws DateMalformedIntervalStringException
-     */
     public function setMultiple(iterable $values, DateInterval|int|null $ttl = null): bool
     {
         $expiration = $this->calculateExpiration(new DateTime(), $ttl);
         $success = true;
         foreach ($values as $key => $value) {
-            $success = $success && $this->setByTimestamp($key, $value, $expiration);
+            $success = $this->setByTimestamp($key, $value, $expiration) && $success;
         }
         return $success;
     }
@@ -154,7 +164,7 @@ class FileCache implements Cache
     {
         $success = true;
         foreach ($keys as $key) {
-            $success = $success && $this->delete($key);
+            $success = $this->delete($key) && $success;
         }
         return $success;
     }
@@ -170,7 +180,7 @@ class FileCache implements Cache
             return false;
         }
 
-        if (!is_numeric($meta) || (int)$meta != 0 && time() > (int)$meta) {
+        if (!is_numeric($meta) || (int)$meta != 0 && time() >= (int)$meta) {
             $this->delete($key);
             return false;
         }

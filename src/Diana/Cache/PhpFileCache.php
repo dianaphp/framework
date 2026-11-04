@@ -2,13 +2,10 @@
 
 namespace Diana\Cache;
 
-use DateInterval;
-use Diana\Contracts\Cache\Cache;
 use Diana\Support\Exceptions\FileNotFoundException;
 use Diana\Support\Helpers\Filesystem;
-use Diana\Support\Serializer\ArraySerializer;
 
-class PhpFileCache extends FileCache implements Cache
+class PhpFileCache extends FileCache
 {
     public function getCacheExtension(): string
     {
@@ -17,6 +14,10 @@ class PhpFileCache extends FileCache implements Cache
 
     public function get(string $key, mixed $default = null): mixed
     {
+        if (!$this->has($key)) {
+            return $default;
+        }
+
         try {
             return Filesystem::getRequire($this->getCacheFileName($key));
         } catch (FileNotFoundException) {
@@ -24,9 +25,8 @@ class PhpFileCache extends FileCache implements Cache
         }
     }
 
-    public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): bool
+    protected function encode(mixed $value): string
     {
-        $value = ArraySerializer::serialize($value);
-        return parent::set($key, $value, $ttl);
+        return "<?php\nreturn unserialize(" . var_export(serialize($value), true) . ");\n";
     }
 }
