@@ -4,12 +4,13 @@ namespace Diana\IO;
 
 use Closure;
 use Diana\Contracts\Core\Container;
+use Diana\Contracts\Core\Pipeline as PipelineContract;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\Support\Helpers\Arr;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
-class Pipeline
+class Pipeline implements PipelineContract
 {
     protected mixed $input = null;
     protected mixed $output = null;
@@ -25,7 +26,7 @@ class Pipeline
      */
     public function expect(string $type): mixed
     {
-        if (class_exists($type) && is_a($this->output, $type) || gettype($this->output) == $type) {
+        if (is_object($this->output) && is_a($this->output, $type) || gettype($this->output) == $type) {
             return $this->finalize();
         }
 

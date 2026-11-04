@@ -2,9 +2,10 @@
 
 namespace Diana\IO;
 
+use Diana\Contracts\IO\HttpRequest as HttpRequestContract;
 use Diana\IO\Traits\Headers;
 
-class HttpRequest extends Request
+class HttpRequest extends Request implements HttpRequestContract
 {
     use Headers;
 

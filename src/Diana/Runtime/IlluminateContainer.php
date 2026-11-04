@@ -39,6 +39,11 @@ readonly class IlluminateContainer implements ContainerContract
         $this->container->singleton($abstract, $concrete);
     }
 
+    public function bind(string $abstract, mixed $concrete = null): void
+    {
+        $this->container->bind($abstract, $concrete);
+    }
+
     public function get(string $abstract): mixed
     {
         return $this->container->get($abstract);

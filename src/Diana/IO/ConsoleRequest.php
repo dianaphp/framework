@@ -2,9 +2,10 @@
 
 namespace Diana\IO;
 
+use Diana\Contracts\IO\ConsoleRequest as ConsoleRequestContract;
 use Diana\Support\Collection\ImmutableCollection;
 
-class ConsoleRequest extends Request
+class ConsoleRequest extends Request implements ConsoleRequestContract
 {
     public ImmutableCollection $args;
 
@@ -18,6 +19,11 @@ class ConsoleRequest extends Request
     public function getCommand(): string
     {
         return $this->command;
+    }
+
+    public function getArguments(): array
+    {
+        return $this->args->getAll();
     }
 
     public function getDefaultStatusCode(): int

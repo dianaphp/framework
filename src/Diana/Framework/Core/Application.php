@@ -4,17 +4,14 @@ namespace Diana\Framework\Core;
 
 use Composer\Autoload\ClassLoader;
 use Diana\Cache\JsonFileCache;
-use Diana\Cache\PhpFileCache;
 use Diana\Config\Config;
 use Diana\Config\FileConfig;
 use Diana\Contracts\Cache\Cache;
 use Diana\Contracts\Config\Config as ConfigContract;
 use Diana\Contracts\Core\Container;
+use Diana\Contracts\Core\Pipeline as PipelineContract;
 use Diana\Contracts\Event\Dispatcher;
-use Diana\Contracts\RendererContract;
 use Diana\Contracts\RequestContract;
-use Diana\Contracts\Router\Route as RouteContract;
-use Diana\Contracts\Router\Router;
 use Diana\Events\BootEvent;
 use Diana\Events\RegisterPackageEvent;
 use Diana\Events\ShutdownEvent;
@@ -23,14 +20,10 @@ use Diana\IO\Event\Dispatcher as DispatcherDriver;
 use Diana\IO\Exceptions\UnexpectedOutputTypeException;
 use Diana\IO\Pipeline;
 use Diana\IO\Response;
-use Diana\Rendering\Drivers\BladeRenderer;
-use Diana\Router\Exceptions\CommandNotFoundException;
-use Diana\Router\Exceptions\RouteNotFoundException;
-use Diana\Router\FileRouterCached;
-use Diana\Router\Route;
 use Diana\Runtime\IlluminateContainer;
 use Diana\Runtime\KernelModules\ExceptionHandler;
 use Diana\Runtime\KernelModules\ProvideAliases;
+use InvalidArgumentException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -38,7 +31,9 @@ class Application
 {
     protected Container $container;
     protected Dispatcher $dispatcher;
-    protected Router $router;
+    protected object $entrypoint;
+
+    protected array $registeredPackages = [];
 
     protected array $middleware = [];
 
@@ -59,11 +54,17 @@ class Application
         $this->config->addDefault($this->defaultConfig());
 
         $this->setupContainer();
-        // ab hier kernel
         $this->runModules();
         $this->setupDrivers();
 
-        $this->registerPackage($this->config->get('entryPoint'));
+        foreach ($this->config->get('packages') as $package) {
+            $this->registerPackage($package);
+        }
+
+        $this->entrypoint = $this->registerPackage($this->config->get('entrypoint'));
+        if (!is_callable($this->entrypoint)) {
+            throw new InvalidArgumentException('The configured entrypoint must provide a public __invoke() method.');
+        }
 
         $this->dispatcher->dispatch(new BootEvent());
     }
@@ -71,6 +72,10 @@ class Application
     protected function setupContainer(): void
     {
         $this->container = new ($this->config->get('singleton')[Container::class])();
+
+        foreach ($this->config->get('bindings') as $abstract => $concrete) {
+            $this->container->bind($abstract, $concrete);
+        }
 
         foreach ($this->config->get('contextualBindings') as $class => $bindings) {
             foreach ($bindings as $abstract => $concrete) {
@@ -80,19 +85,6 @@ class Application
 
         // it is crucial to register the user defined bindings first, as they might override core bindings
         foreach ($this->config->get('singleton') as $abstract => $concrete) {
-            // TODO: binding resolving as event? or pipeline?
-            // TODO: outsource to another class?
-//            if (is_a($concrete, ProxyInterface::class, true)) {
-//                $reflectConcrete = new ReflectionClass($concrete);
-//                $className = $reflectConcrete->getShortName() . 'Proxy';
-//                if (!class_exists($className . 'Proxy')) {
-//                    if (class_exists($abstract)) {
-//                        $reflectAbstract = new ReflectionClass($abstract);
-//                        $implementation = $reflectAbstract->isInterface() ? 'implements' : 'extends';
-//                        eval('class ' . $className . ' ' . $implementation . ' ' . $abstract . ' {}');
-//                    }
-//                }
-//            }
             $this->container->singleton($abstract, $concrete);
         }
 
@@ -121,19 +113,21 @@ class Application
     {
         // todo: $this->logger = $this->container->get(LoggerContract::class);
         $this->dispatcher = $this->container->get(Dispatcher::class);
-        $this->router = $this->container->get(Router::class);
     }
 
-    public function registerPackage(string $package, bool $force = false): void
+    public function registerPackage(string $package, bool $force = false): object
     {
-        if (!$force && $this->container->has($package)) {
-            return;
+        if (!$force && isset($this->registeredPackages[$package])) {
+            return $this->registeredPackages[$package];
         }
 
         $instance = $this->container->make($package);
         $this->container->instance($package, $instance);
+        $this->registeredPackages[$package] = $instance;
 
         $this->dispatcher->dispatch(new RegisterPackageEvent($instance, $force));
+
+        return $instance;
     }
 
     /**
@@ -141,42 +135,20 @@ class Application
      */
     public function generateResponse(RequestContract $request): Response
     {
-        try {
-            $route = $this->router->resolve($request);
-            $statusCode = $request->getDefaultStatusCode();
-        } catch (RouteNotFoundException) {
-            $statusCode = 404;
-            $route = $this->router->getErrorRoute();
-            if (!$route) {
-                // TODO: use the default renderer to render an http error
-                // RendererInterface::class => BlankRenderer::class
-                return new Response("HTTP Error 404 - This page could not be found.", $statusCode);
-            }
-        } catch (CommandNotFoundException) {
-            $statusCode = 1;
-            $route = $this->router->getErrorCommandRoute();
-            if (!$route) {
-                return new Response("This command could not be found.", $statusCode);
-            }
-        }
+        $this->container->instance(RequestContract::class, $request);
 
-        $this->container->instance(RouteContract::class, $route);
-
-        return $this->container->make(Pipeline::class)
-            ->pipe($this->middleware) // global middleware
-            ->pipe($route->getMiddleware()) // route middleware
-            ->pipe(function () use ($route, $statusCode) {
-                return new Response(
-                    $this->container->call(
-                        $route->getController() . '@' . $route->getMethod(),
-                        [
-                            'statusCode' => $statusCode,
-                            ...$route->getParameters()
-                        ]
-                    ),
-                    $statusCode
-                );
-            })
+        return $this->container->make(PipelineContract::class)
+            ->send($request)
+            ->pipe([
+                ...$this->middleware,
+                ...$this->config->get('middleware'),
+                function (RequestContract $request): Response {
+                    $response = $this->container->call([$this->entrypoint, '__invoke'], ['request' => $request]);
+                    return $response instanceof Response
+                        ? $response
+                        : new Response($response, $request->getDefaultStatusCode());
+                },
+            ])
             ->expect(Response::class);
     }
 
@@ -185,8 +157,6 @@ class Application
      */
     public function handleRequest(RequestContract $request): void
     {
-        $this->container->instance(RequestContract::class, $request);
-
         $response = $this->generateResponse($request);
 //        $this->container->instance(ResponseContract::class, $response);
         $status = $response->getStatusCode();
@@ -237,24 +207,22 @@ class Application
             'output' => 'php://output',
             'cachePath' => 'tmp',
             'aliases' => [],
+            'middleware' => [],
+            'packages' => [],
+            'bindings' => [
+                PipelineContract::class => Pipeline::class,
+            ],
             'singleton' => [
                 Container::class => IlluminateContainer::class,
                 Config::class => FileConfig::class,
                 Cache::class => JsonFileCache::class,
-                Router::class => FileRouterCached::class,
-                RouteContract::class => Route::class,
-                RendererContract::class => BladeRenderer::class,
                 Dispatcher::class => DispatcherDriver::class
             ],
-            'contextualBindings' => [
-                FileRouterCached::class => [
-                    Cache::class => PhpFileCache::class
-                ]
-            ],
+            'contextualBindings' => [],
             'containerAliases' => [
                 Config::class => ConfigContract::class
             ],
-            'entryPoint' => '\App\AppModule',
+            'entrypoint' => 'Diana\Router\Framework\RouterModule',
             'env' => 'dev',
             'logs' => [
                 'error' => 'logs/error.log',
