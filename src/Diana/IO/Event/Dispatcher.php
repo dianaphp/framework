@@ -69,37 +69,36 @@ class Dispatcher implements DispatcherContract
         array $before = [],
         array $after = []
     ): callable {
-        if (!isset($this->eventListeners[$event])) {
-            $this->eventListeners[$event] = [$eventListener];
-        } else {
-            $position = count($this->eventListeners[$event]);
-            $min = INF;
+        // Splice offsets refer to positions, so normalize gaps left by removal.
+        $listeners = array_values($this->eventListeners[$event] ?? []);
+        $earliest = 0;
+        $latest = count($listeners);
 
-            foreach ($before as $beforeEventListener) {
-                if ($beforeEventListener == '*') {
-                    $min = 0;
-                } else {
-                    $index = array_search($beforeEventListener, $this->eventListeners[$event]);
-                    if ($index !== false) {
-                        $min = min($position, $index - 1);
-                    }
-                }
-                $position = $min;
-            }
-
-            foreach ($after as $afterEventListener) {
-                $index = array_search($afterEventListener, $this->eventListeners[$event]);
+        foreach ($before as $beforeEventListener) {
+            if ($beforeEventListener === '*') {
+                $latest = 0;
+            } else {
+                $index = array_search($beforeEventListener, $listeners);
                 if ($index !== false) {
-                    $position = max($position, $index + 1);
+                    $latest = min($latest, $index);
                 }
             }
-
-            if ($position > $min) {
-                throw new Exception('Invalid event listener ruleset');
-            }
-
-            array_splice($this->eventListeners[$event], $position, 0, [$eventListener]);
         }
+
+        foreach ($after as $afterEventListener) {
+            $index = array_search($afterEventListener, $listeners);
+            if ($index !== false) {
+                $earliest = max($earliest, $index + 1);
+            }
+        }
+
+        if ($earliest > $latest) {
+            throw new Exception('Invalid event listener ruleset');
+        }
+
+        // Prefer appending unless a known before-rule requires an earlier slot.
+        array_splice($listeners, $latest, 0, [$eventListener]);
+        $this->eventListeners[$event] = $listeners;
         return $eventListener;
     }
 
