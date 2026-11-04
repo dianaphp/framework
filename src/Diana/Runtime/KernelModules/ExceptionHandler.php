@@ -16,54 +16,30 @@ class ExceptionHandler implements KernelModule
 
     public function __construct(#[Config('framework')] protected Config $config)
     {
-//        $this->config->addDefault(['exceptionHandlers' => []]);
     }
 
     public function __invoke(): void
     {
-        (new Run())
-            ->pushHandler(php_sapi_name() == 'cli' ? new PlainTextHandler() : new PrettyPageHandler())
-            ->register();
+        $this->createRun()->register();
+    }
 
-//        $previous = set_error_handler([$this, 'handleError']);
-//        if ($previous) {
-//            $this->addHandler(new class ($previous) implements ExceptionHandlerInterface {
-//                public function __construct(protected Closure|array|string $previous)
-//                {
-//                }
-//
-//                public function supports(Throwable $exception): bool
-//                {
-//                    return $exception instanceof ErrorException;
-//                }
-//
-//                public function handle(Throwable $exception): bool
-//                {
-//                    ($this->previous)($exception);
-//                    return true;
-//                }
-//            });
-//        }
+    protected function createRun(): Run
+    {
+        $run = new Run();
+        if (($this->config->all()['env'] ?? null) === 'dev') {
+            return $run->pushHandler(PHP_SAPI === 'cli' ? new PlainTextHandler() : new PrettyPageHandler());
+        }
 
-//        $previous = set_exception_handler([$this, 'handle']);
-//        if ($previous) {
-//            $this->addHandler(new class ($previous) implements ExceptionHandlerInterface {
-//                public function __construct(protected Closure|array|string $previous)
-//                {
-//                }
-//
-//                public function supports(Throwable $exception): bool
-//                {
-//                    return true;
-//                }
-//
-//                public function handle(Throwable $exception): bool
-//                {
-//                    ($this->previous)($exception);
-//                    return true;
-//                }
-//            });
-//        }
+        // Detailed exceptions go to the server log, never into the response.
+        return $run->pushHandler(static function (Throwable $exception): int {
+            error_log((string) $exception);
+            if (PHP_SAPI !== 'cli' && !headers_sent()) {
+                http_response_code(500);
+                header('Content-Type: text/plain; charset=UTF-8');
+            }
+            echo "Internal Server Error\n";
+            return \Whoops\Handler\Handler::QUIT;
+        });
     }
 
     public function addHandler(ExceptionHandlerInterface $handler): void
@@ -77,17 +53,13 @@ class ExceptionHandler implements KernelModule
     public function handle(Throwable $exception): void
     {
         foreach ($this->handlers as $handler) {
-            var_dump($handler);
             if ($handler->supports($exception)) {
                 $success = $handler->handle($exception);
                 if ($success) {
-                    var_dump($handler);
                     return;
                 }
             }
         }
-
-//        throw $exception;
     }
 
     /**

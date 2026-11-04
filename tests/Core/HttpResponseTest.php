@@ -15,7 +15,9 @@ class HttpResponseTest extends TestCase
         $log = tmpfile();
         $process = proc_open([
             PHP_BINARY, '-S', $address, __DIR__ . '/../Fixtures/http-response.php',
-        ], [0 => ['pipe', 'r'], 1 => $log, 2 => $log], $pipes);
+        ], [0 => ['pipe', 'r'], 1 => $log, 2 => $log], $pipes, null, array_merge(getenv(), [
+            'DIANA_TEST_AUTOLOAD' => dirname((new \ReflectionClass(\Composer\Autoload\ClassLoader::class))->getFileName(), 2) . '/autoload.php',
+        ]));
         self::assertIsResource($process);
 
         try {

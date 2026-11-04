@@ -1,7 +1,7 @@
 <?php
 
 // Run by HttpResponseTest through PHP's HTTP server, never included by PHPUnit.
-require dirname(__DIR__, 3) . '/vendor/autoload.php';
+require getenv('DIANA_TEST_AUTOLOAD');
 
 use Composer\Autoload\ClassLoader;
 use Diana\Config\Config;

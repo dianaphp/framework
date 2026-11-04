@@ -51,7 +51,7 @@ class Pipeline implements PipelineContract
 
     public function pipe(Closure|array|string $pipes = []): static
     {
-        $next = static fn (mixed $input) => $this->output;
+        $next = fn (mixed $input) => $this->output;
 
         // Build from the inside out: each middleware owns the rest of the chain.
         foreach (array_reverse(is_array($pipes) ? $pipes : [$pipes]) as $pipe) {
