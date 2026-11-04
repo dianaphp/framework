@@ -62,10 +62,42 @@ class FileConfig extends Config implements ConfigContract, ContextualAttribute
         $config = $this->arrayMergeRecursiveDistinct($this->default, $this->config);
 
         if ($this->config != $config) {
-            file_put_contents($this->path, ArraySerializer::serialize($config));
+            $this->writeConfig(ArraySerializer::serialize($config));
         }
 
         $this->config = $config;
+    }
+
+    protected function writeConfig(string $content): void
+    {
+        // Keep the temporary file on the same filesystem for an atomic rename.
+        $temporary = tempnam(dirname($this->path), '.diana-config-');
+        if ($temporary === false) {
+            throw new RuntimeException("Cannot create temporary config file for {$this->path}");
+        }
+
+        try {
+            if (file_put_contents($temporary, $content) !== strlen($content)) {
+                throw new RuntimeException("Cannot write config file {$this->path}");
+            }
+
+            $permissions = fileperms($this->path);
+            if ($permissions === false || !chmod($temporary, $permissions & 0777)) {
+                throw new RuntimeException("Cannot preserve config permissions for {$this->path}");
+            }
+
+            if (!rename($temporary, $this->path)) {
+                throw new RuntimeException("Cannot replace config file {$this->path}");
+            }
+            clearstatcache(true, $this->path);
+            if (function_exists('opcache_invalidate')) {
+                opcache_invalidate($this->path, true);
+            }
+        } finally {
+            if (is_file($temporary)) {
+                unlink($temporary);
+            }
+        }
     }
 
     public static function setDirectory(string $directory): void
