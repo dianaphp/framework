@@ -12,6 +12,7 @@ class HttpRequest extends Request implements HttpRequestContract
     protected ?string $route = null;
     protected ?string $host = null;
     protected ?string $query = null;
+    protected array $queryParameters = [];
     protected ?string $protocol = null;
 
     public function __construct(
@@ -19,6 +20,8 @@ class HttpRequest extends Request implements HttpRequestContract
         protected string $method = 'GET',
         array $headers = []
     ) {
+        $url = $url !== '' ? $url : ($_SERVER['REQUEST_URI'] ?? '/');
+
         if (($pos = strpos($url, "://")) !== false) {
             $this->protocol = substr($url, 0, $pos);
             $url = substr($url, $pos + 3);
@@ -41,22 +44,19 @@ class HttpRequest extends Request implements HttpRequestContract
 
         if (($pos = strpos($url, "?")) !== false) {
             $this->query = substr($url, $pos + 1);
-            foreach (explode("&", $this->query) as $params) {
-                $position = strpos($params, "=");
-                $_GET[substr($params, 0, $position)] = substr($params, $position + 1);
-            }
+            parse_str($this->query, $this->queryParameters);
 
             $url = substr($url, 0, $pos);
         } else {
             $this->query = '';
         }
 
-        $this->route = $url ?: $_SERVER["REQUEST_URI"];
+        $this->route = $url ?: '/';
 
         $this->headers = $headers;
 
         parent::__construct(
-            $this->protocol . "://" . $this->host . $this->route . ($this->query ? "?" . $this->query : "")
+            $this->protocol . "://" . $this->host . $this->route . ($this->query !== '' ? "?" . $this->query : "")
         );
     }
 
@@ -78,6 +78,11 @@ class HttpRequest extends Request implements HttpRequestContract
     public function getQuery(): string
     {
         return $this->query;
+    }
+
+    public function getQueryParameters(): array
+    {
+        return $this->queryParameters;
     }
 
     public function getRoute(): string
