@@ -142,7 +142,7 @@ class Application
     {
         $this->container->instance(RequestContract::class, $request);
 
-        return $this->container->make(PipelineContract::class)
+        $response = $this->container->make(PipelineContract::class)
             ->send($request)
             ->pipe([
                 ...$this->config->get('middleware'),
@@ -155,6 +155,11 @@ class Application
                 },
             ])
             ->expect(Response::class);
+
+        if ($request instanceof \Diana\Contracts\IO\HttpRequest && $request->getMethod() === 'HEAD') {
+            return new Response('', $response->getStatusCode(), $response->getHeader());
+        }
+        return $response;
     }
 
     /**
@@ -187,11 +192,62 @@ class Application
     /**
      * @throws UnexpectedOutputTypeException
      */
-    public function runCommand(string $command): Response
+    public function runCommand(string $command, array $arguments = []): Response
     {
-        $args = explode(' ', $command);
-        $command = array_shift($args);
-        return $this->generateResponse(new ConsoleRequest($command, $args));
+        // With an explicit argument list the command name and values are passed verbatim.
+        if (func_num_args() === 1) {
+            $tokens = $this->tokenizeCommand($command);
+            $command = array_shift($tokens) ?? '';
+            $arguments = $tokens;
+        }
+        if ($command === '') {
+            throw new InvalidArgumentException('A command name is required.');
+        }
+        return $this->generateResponse(new ConsoleRequest($command, $arguments));
+    }
+
+    /** Split whitespace outside quotes; backslash escapes outside single quotes. No shell expansion. */
+    private function tokenizeCommand(string $input): array
+    {
+        $tokens = [];
+        $token = '';
+        $quote = null;
+        $started = false;
+        for ($i = 0, $length = strlen($input); $i < $length; $i++) {
+            $char = $input[$i];
+            if ($char === "\\" && $quote !== "'") {
+                if (++$i === $length) {
+                    throw new InvalidArgumentException('Trailing escape in command.');
+                }
+                $token .= $input[$i];
+                $started = true;
+            } elseif ($quote !== null) {
+                if ($char === $quote) {
+                    $quote = null;
+                } else {
+                    $token .= $char;
+                }
+            } elseif ($char === "'" || $char === '"') {
+                $quote = $char;
+                $started = true;
+            } elseif (str_contains(" \t\r\n\v\f", $char)) {
+                if ($started) {
+                    $tokens[] = $token;
+                    $token = '';
+                    $started = false;
+                }
+            } else {
+                $token .= $char;
+                $started = true;
+            }
+        }
+        if ($quote !== null) {
+            throw new InvalidArgumentException('Unclosed quote in command.');
+        }
+        if ($started) {
+            $tokens[] = $token;
+        }
+        return $tokens;
     }
 
     public function shutdown(int $status = 0): void

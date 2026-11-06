@@ -224,3 +224,11 @@ If you find any bugs or errors, please report them on the official forums that w
 Feel free to also send an e-mail to an email address, that will be provided at a future time. Please keep in mind that the Diana framework is still in development and can contain errors. I try to do my best to fix them in time. 
 
 Also, please report any security vulnerability to the given address.
+
+`runCommand('name', ['two words', '', '--format', 'json'])` passes an explicit
+argument list without tokenization. The one-string form supports whitespace,
+single/double quotes and backslash escapes (except inside single quotes), with
+no shell expansion. Invalid quoting, trailing escapes and empty command names
+raise `InvalidArgumentException`. See the router README for option resolution,
+405/Allow, HEAD fallback and automatic OPTIONS semantics. `generateResponse()`
+suppresses HEAD bodies after global middleware while retaining status and headers.

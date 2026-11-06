@@ -138,6 +138,49 @@ class ApplicationTest extends TestCase
         self::assertSame('/example/app/res/view.php', $app->path('res/view.php'));
     }
 
+    public function testCommandArgumentListPreservesValuesVerbatim(): void
+    {
+        $app = $this->app();
+        $arguments = ['two words', '', '0', 'a"b', 'C:\\tmp', '$HOME'];
+        $app->runCommand('example', $arguments);
+        $request = $app->container()->get(RequestContract::class);
+        self::assertSame('example', $request->getCommand());
+        self::assertSame($arguments, $request->getArguments());
+    }
+
+    public function testCommandStringSupportsWhitespaceQuotesEscapesAndEmptyValues(): void
+    {
+        $app = $this->app();
+        $app->runCommand(<<<'COMMAND'
+          example  "two words" '' pre"fix" 'literal\path' escaped\ space "$HOME"
+COMMAND);
+        $request = $app->container()->get(RequestContract::class);
+        self::assertSame('example', $request->getCommand());
+        self::assertSame(['two words', '', 'prefix', 'literal\\path', 'escaped space', '$HOME'], $request->getArguments());
+    }
+
+    public function testMalformedCommandStringsAreRejectedBeforeDispatch(): void
+    {
+        $app = $this->app();
+        foreach (['', " \t", 'example "unclosed', "example trailing\\"] as $command) {
+            try {
+                $app->runCommand($command);
+                self::fail('Malformed command accepted: ' . $command);
+            } catch (InvalidArgumentException) {
+                self::assertSame(0, TestEntryPoint::$calls);
+            }
+        }
+    }
+
+    public function testHeadSuppressesTheBodyAfterGlobalMiddlewareIncludingErrors(): void
+    {
+        $app = $this->app(['middleware' => [static fn () => new Response('error', 405, ['Allow' => 'GET, HEAD'])]]);
+        $response = $app->generateResponse(new HttpRequest('/example', 'HEAD'));
+        self::assertSame('', (string) $response);
+        self::assertSame(405, $response->getStatusCode());
+        self::assertSame('GET, HEAD', $response->getHeader('Allow'));
+    }
+
     public function testPackageRegistrationStillSkipsExistingInstancesUnlessForced(): void
     {
         $app = $this->app();
