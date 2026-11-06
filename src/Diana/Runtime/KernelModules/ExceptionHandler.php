@@ -2,7 +2,7 @@
 
 namespace Diana\Runtime\KernelModules;
 
-use Diana\Config\Config;
+use Diana\Framework\Core\Environment;
 use Diana\Interfaces\ExceptionHandlerInterface;
 use ErrorException;
 use Throwable;
@@ -13,20 +13,26 @@ use Whoops\Run;
 class ExceptionHandler implements KernelModule
 {
     private array $handlers = [];
+    private ?Run $run = null;
 
-    public function __construct(#[Config('framework')] protected Config $config)
+    public function __construct(protected Environment $environment)
     {
     }
 
     public function __invoke(): void
     {
-        $this->createRun()->register();
+        // Whoops owns development output; native PHP output must never leak details.
+        ini_set('display_errors', '0');
+        ini_set('display_startup_errors', '0');
+        $this->run?->unregister();
+        $this->run = $this->createRun();
+        $this->run->register();
     }
 
     protected function createRun(): Run
     {
         $run = new Run();
-        if (($this->config->all()['env'] ?? null) === 'dev') {
+        if ($this->environment->is(Environment::DEV)) {
             return $run->pushHandler(PHP_SAPI === 'cli' ? new PlainTextHandler() : new PrettyPageHandler());
         }
 

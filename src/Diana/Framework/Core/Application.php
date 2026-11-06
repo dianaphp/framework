@@ -2,6 +2,7 @@
 
 namespace Diana\Framework\Core;
 
+use Closure;
 use Composer\Autoload\ClassLoader;
 use Diana\Cache\JsonFileCache;
 use Diana\Config\Config;
@@ -29,6 +30,8 @@ use Psr\Container\NotFoundExceptionInterface;
 
 class Application
 {
+    protected Environment $environment;
+    protected Config $config;
     protected Container $container;
     protected Dispatcher $dispatcher;
     protected object $entrypoint;
@@ -47,9 +50,12 @@ class Application
     public function __construct(
         protected string $appPath,
         protected ClassLoader $loader,
-        protected Config $config
+        Config|Closure $config
     ) {
+        $this->environment = new Environment();
+        $this->config = $config instanceof Closure ? $config() : $config;
         $this->config->addDefault($this->defaultConfig());
+        $this->environment->configure($this->config->all()['env'] ?? Environment::PROD);
 
         $this->setupContainer();
         $this->runModules();
@@ -92,6 +98,7 @@ class Application
 
         $this->container->instance(Container::class, $this->container);
         $this->container->instance(Application::class, $this);
+        $this->container->instance(Environment::class, $this->environment);
         $this->container->instance(ClassLoader::class, $this->loader);
     }
 
@@ -225,7 +232,7 @@ class Application
                 Config::class => ConfigContract::class
             ],
             'entrypoint' => 'Diana\Router\Framework\RouterModule',
-            'env' => 'dev',
+            'env' => Environment::PROD,
             'logs' => [
                 'error' => 'logs/error.log',
                 'access' => 'logs/access.log'

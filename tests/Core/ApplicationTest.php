@@ -12,6 +12,7 @@ use Diana\Events\BootEvent;
 use Diana\Events\RegisterPackageEvent;
 use Diana\Events\ShutdownEvent;
 use Diana\Framework\Core\Application;
+use Diana\Framework\Core\Environment;
 use Diana\IO\Event\NullDispatcher;
 use Diana\IO\HttpRequest;
 use Diana\IO\Pipeline;
@@ -35,6 +36,42 @@ class ApplicationTest extends TestCase
             'singleton' => [Dispatcher::class => RecordingDispatcher::class],
             ...$values,
         ]));
+    }
+
+    public function testMissingEnvironmentDefaultsToProduction(): void
+    {
+        $previous = getenv('APP_ENV');
+        putenv('APP_ENV');
+        try {
+            $app = $this->app();
+            self::assertSame(Environment::PROD, $app->container()->get(Environment::class)->name());
+            self::assertSame($app->container()->get(Environment::class), $app->container()->make(Environment::class));
+        } finally {
+            putenv($previous === false ? 'APP_ENV' : 'APP_ENV=' . $previous);
+        }
+    }
+
+    public function testEnvironmentIsCapturedBeforeConfigFactoryAndInjectedAsTheSameInstance(): void
+    {
+        $previous = getenv('APP_ENV');
+        putenv('APP_ENV=' . Environment::DEV);
+        $config = new TestConfig(['env' => Environment::PROD, 'entrypoint' => EnvironmentEntryPoint::class]);
+        try {
+            $app = new TestApplication('/example', new ClassLoader(), static function () use ($config): Config {
+                putenv('APP_ENV=' . Environment::PROD);
+                return $config;
+            });
+            $environment = $app->container()->get(Environment::class);
+            self::assertSame($environment, $app->container()->make(EnvironmentEntryPoint::class)->environment);
+            self::assertSame(Environment::DEV, $environment->name());
+            self::assertSame(Environment::DEV, (string) $app->generateResponse(new HttpRequest('/')));
+            self::assertSame(Environment::PROD, $config->get('env'));
+            $other = $this->app()->container()->get(Environment::class);
+            self::assertNotSame($environment, $other);
+            self::assertTrue($other->is(Environment::PROD));
+        } finally {
+            putenv($previous === false ? 'APP_ENV' : 'APP_ENV=' . $previous);
+        }
     }
 
     public function testBootOrderIncludesNestedPackageRegistration(): void
@@ -291,4 +328,11 @@ class TestPipeline extends Pipeline
         self::$stages++;
         return parent::pipe($pipes);
     }
+}
+
+class EnvironmentEntryPoint
+{
+    public function __construct(public Environment $environment) {}
+
+    public function __invoke(): string { return $this->environment->name(); }
 }

@@ -130,6 +130,61 @@ The lifecycle messages `BootEvent`, `RegisterPackageEvent` and `ShutdownEvent`
 belong to this package under `Diana\Events`. Optional framework modules may use
 these events; the SDK contains the shared contracts.
 
+## Environment and error output
+
+The default environment is `prod` (`Environment::PROD`), including in the blank project. Only
+exactly `dev` (`Environment::DEV`) enables detailed Whoops error pages (HTTP) or traces (CLI).
+The process environment variable `APP_ENV`, when present, overrides `env` in
+`cfg/framework.conf.php`. An empty or unrecognized value uses safe error output.
+Without `APP_ENV`, the configuration file's explicit `env` applies after it has
+loaded; a missing `env` defaults to `prod`.
+
+For local development, start the project with `APP_ENV=dev php boot/serve.php`
+or run a command with `APP_ENV=dev php bin/diana <command>`. For deployment,
+set `APP_ENV=prod`; this also overrides an existing `'env' => 'dev'` in
+older configuration files. The resolved environment is held in `Diana\Framework\Core\Environment`,
+not written back to configuration. `production` is not an alias for `prod`;
+comparisons are exact. Custom names such as `staging` remain available, and
+only `dev` enables debug behavior. There is no automatic `.env` file loading.
+
+The project bootstrap installs minimal safe error handling before Composer is
+loaded. `Application` creates the environment, loads configuration and builds
+the container. The container then constructs the exception handler as a regular
+kernel module with the shared environment injected. Whoops takes over at that
+point; `Application` does not construct or register it directly.
+
+Composer, configuration and container failures occurring before the module
+starts always use the minimal fallback, including with `APP_ENV=dev`: HTTP 500
+with a generic message, details in the PHP server log, CLI exit code 1.
+Detailed development output is available for failures after the exception
+handler module starts.
+
+In safe mode, uncaught exceptions and handled PHP errors produce HTTP 500 with
+`Content-Type: text/plain; charset=UTF-8` and only `Internal Server Error` in
+the body. Details go to PHP's configured server error log (`error_log`), not to
+the framework's currently unused `logs.error` setting. CLI boot failures exit
+with code 1. Native `display_errors` and `display_startup_errors` are disabled;
+Whoops supplies development output independently. Configure these PHP settings
+off at the server level as well to cover errors before bootstrap execution.
+A configuration factory lets the application capture its process environment
+before constructing configuration:
+
+```php
+new Application($path, $loader, static fn() => new FileConfig('framework'));
+```
+
+An already constructed `Config` is still accepted. Early error protection comes
+from the bootstrap in both cases, independently of the container.
+`Application` registers its environment instance in the container as a singleton.
+Inject `Environment` into services and use `name()`, `is(Environment::DEV)`,
+`is(Environment::PROD)` or `is(Environment::DEV, 'staging')`. The environment reads `APP_ENV` once at
+application startup; later process changes do not change a running application.
+The exception handler, Vite integration, Blade directives and Twig debug mode all
+use this shared instance. `@production` checks `Environment::PROD`; use
+`@env(\Diana\Framework\Core\Environment::DEV)` for explicit comparisons.
+Custom front controllers must also protect Composer loading failures before
+application construction, as the project's bootstrap does.
+
 ## File cache paths
 
 `FileCache`, `JsonFileCache` and `PhpFileCache` use hashed filenames in a namespace

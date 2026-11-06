@@ -2,7 +2,7 @@
 
 namespace Diana\Tests\Core;
 
-use Diana\Config\Config;
+use Diana\Framework\Core\Environment;
 use Diana\Runtime\KernelModules\ExceptionHandler;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -11,13 +11,24 @@ use Whoops\Run;
 
 class ExceptionHandlerTest extends TestCase
 {
+    private string|false $previousEnvironment;
+
+    protected function setUp(): void
+    {
+        $this->previousEnvironment = getenv('APP_ENV');
+        putenv('APP_ENV');
+    }
+
+    protected function tearDown(): void
+    {
+        putenv($this->previousEnvironment === false ? 'APP_ENV' : 'APP_ENV=' . $this->previousEnvironment);
+    }
+
     private function runner(?string $environment): Run
     {
-        $config = new Config('framework');
-        if ($environment !== null) {
-            $config->set('env', $environment);
-        }
-        return (new class($config) extends ExceptionHandler {
+        $env = new Environment();
+        $env->configure($environment);
+        return (new class($env) extends ExceptionHandler {
             public function runner(): Run { return $this->createRun(); }
         })->runner();
     }
@@ -39,6 +50,16 @@ class ExceptionHandlerTest extends TestCase
             ini_set('error_log', $previous);
             unlink($log);
         }
+    }
+
+    public function testDeploymentEnvironmentOverridesConfiguredDevelopment(): void
+    {
+        foreach (['production', '', 'DEV', 'testing'] as $environment) {
+            putenv('APP_ENV=' . $environment);
+            self::assertNotInstanceOf(PlainTextHandler::class, $this->runner('dev')->getHandlers()[0]);
+        }
+        putenv('APP_ENV=dev');
+        self::assertInstanceOf(PlainTextHandler::class, $this->runner('production')->getHandlers()[0]);
     }
 
     public function testDevelopmentRetainsDetailedConsoleHandler(): void
