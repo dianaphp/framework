@@ -4,9 +4,12 @@ namespace Diana\Cache;
 
 use DateInterval;
 use DateTime;
+use Diana\Cache\Exceptions\InvalidCacheKeyException;
 use Diana\Config\Config;
 use Diana\Contracts\Cache\Cache;
 use Diana\Framework\Core\Application;
+use InvalidArgumentException;
+use RuntimeException;
 
 class FileCache implements Cache
 {
@@ -23,11 +26,13 @@ class FileCache implements Cache
 
     public function setCacheExtension(string $extension): void
     {
+        $this->validateExtension($extension, $this->getMetaExtension());
         $this->cacheExtension = $extension;
     }
 
     public function setMetaExtension(string $extension): void
     {
+        $this->validateExtension($extension, $this->getCacheExtension());
         $this->metaExtension = $extension;
     }
 
@@ -53,12 +58,42 @@ class FileCache implements Cache
 
     protected function getCacheFileName(string $key): string
     {
-        return $this->getCacheDir() . DIRECTORY_SEPARATOR . $key . $this->getCacheExtension();
+        return $this->entryPath($this->getCacheDir(), $key, $this->getCacheExtension());
     }
 
     protected function getMetaFileName(string $key): string
     {
-        return $this->getMetaDir() . DIRECTORY_SEPARATOR . $key . $this->getMetaExtension();
+        return $this->entryPath($this->getMetaDir(), $key, $this->getMetaExtension());
+    }
+
+    protected function validateKey(mixed $key): void
+    {
+        if (!is_string($key) || $key === '' || preg_match('~[{}()/\\\\@:[:cntrl:]]~', $key)) {
+            throw new InvalidCacheKeyException('Cache keys must be non-empty strings without reserved or control characters.');
+        }
+    }
+
+    private function validateExtension(string $extension, string $other): void
+    {
+        if (!preg_match('/\A(?:\.[a-zA-Z0-9]+)+\z/', $extension) || $extension === $other) {
+            throw new InvalidArgumentException('Cache extensions must be distinct dot-separated alphanumeric suffixes.');
+        }
+    }
+
+    private function filePrefix(): string
+    {
+        return 'diana-' . hash('sha256', static::class . "\0" . $this->getCacheExtension() . "\0" . $this->getMetaExtension()) . '-';
+    }
+
+    private function entryPath(string $directory, string $key, string $extension): string
+    {
+        $this->validateKey($key);
+        $path = $directory . DIRECTORY_SEPARATOR . $this->filePrefix() . hash('sha256', $key) . $extension;
+        clearstatcache(true, $path);
+        if (is_link($path) || (file_exists($path) && !is_file($path))) {
+            throw new RuntimeException('Cache entry must be a regular file, not a link or directory.');
+        }
+        return $path;
     }
 
     public function get(string $key, mixed $default = null): mixed
@@ -90,12 +125,15 @@ class FileCache implements Cache
 
     public function setByTimestamp(string $key, mixed $value, int $expiration): bool
     {
+        // Check both paths before writing either file.
+        $file = $this->getCacheFileName($key);
+        $meta = $this->getMetaFileName($key);
         if ($expiration !== 0 && $expiration <= time()) {
             return $this->delete($key);
         }
 
-        return file_put_contents($this->getCacheFileName($key), $this->encode($value)) !== false
-            && file_put_contents($this->getMetaFileName($key), (string) $expiration) !== false;
+        return file_put_contents($file, $this->encode($value)) !== false
+            && file_put_contents($meta, (string) $expiration) !== false;
     }
 
     public function calculateExpiration(DateTime $dateTime, int|DateInterval|null $ttl): int
@@ -117,13 +155,15 @@ class FileCache implements Cache
 
     public function delete(string $key): bool
     {
+        $meta = $this->getMetaFileName($key);
+        $file = $this->getCacheFileName($key);
         $success = true;
-        if (file_exists($this->getMetaFileName($key))) {
-            $success = unlink($this->getMetaFileName($key));
+        if (file_exists($meta)) {
+            $success = unlink($meta);
         }
 
-        if (file_exists($this->getCacheFileName($key))) {
-            $success = unlink($this->getCacheFileName($key)) && $success;
+        if (file_exists($file)) {
+            $success = unlink($file) && $success;
         }
         return $success;
     }
@@ -131,18 +171,31 @@ class FileCache implements Cache
     public function clear(): bool
     {
         $success = true;
-        arr(scandir($this->getCacheDir()))
-            ->diff(['.', '..'])
-            ->filter(fn($file) => is_file($this->getCacheDir() . DIRECTORY_SEPARATOR . $file))
-            ->each(function ($file) use (&$success) {
-                $success = unlink($this->getCacheDir() . DIRECTORY_SEPARATOR . $file) && $success;
-            });
+        $directories = [];
+        $directories[$this->getCacheDir()][] = $this->getCacheExtension();
+        $directories[$this->getMetaDir()][] = $this->getMetaExtension();
+        foreach ($directories as $directory => $extensions) {
+            $files = scandir($directory);
+            if ($files === false) {
+                $success = false;
+                continue;
+            }
+            $pattern = '/\A' . preg_quote($this->filePrefix(), '/') . '[a-f0-9]{64}(?:'
+                . implode('|', array_map(fn ($suffix) => preg_quote($suffix, '/'), $extensions)) . ')\z/';
+            foreach ($files as $file) {
+                $path = $directory . DIRECTORY_SEPARATOR . $file;
+                if (preg_match($pattern, $file) && !is_link($path) && is_file($path)) {
+                    $success = unlink($path) && $success;
+                }
+            }
+        }
 
         return $success;
     }
 
     public function getMultiple(iterable $keys, mixed $default = null): iterable
     {
+        $keys = $this->validatedKeys($keys);
         $values = [];
         foreach ($keys as $key) {
             $values[$key] = $this->get($key, $default);
@@ -152,9 +205,16 @@ class FileCache implements Cache
 
     public function setMultiple(iterable $values, DateInterval|int|null $ttl = null): bool
     {
+        $entries = [];
+        foreach ($values as $key => $value) {
+            // PHP converts numeric string array keys to integers.
+            $key = is_int($key) ? (string) $key : $key;
+            $this->validateKey($key);
+            $entries[] = [$key, $value];
+        }
         $expiration = $this->calculateExpiration(new DateTime(), $ttl);
         $success = true;
-        foreach ($values as $key => $value) {
+        foreach ($entries as [$key, $value]) {
             $success = $this->setByTimestamp($key, $value, $expiration) && $success;
         }
         return $success;
@@ -162,11 +222,22 @@ class FileCache implements Cache
 
     public function deleteMultiple(iterable $keys): bool
     {
+        $keys = $this->validatedKeys($keys);
         $success = true;
         foreach ($keys as $key) {
             $success = $this->delete($key) && $success;
         }
         return $success;
+    }
+
+    private function validatedKeys(iterable $keys): array
+    {
+        $validated = [];
+        foreach ($keys as $key) {
+            $this->validateKey($key);
+            $validated[] = $key;
+        }
+        return $validated;
     }
 
     public function has(string $key): bool

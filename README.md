@@ -130,6 +130,39 @@ The lifecycle messages `BootEvent`, `RegisterPackageEvent` and `ShutdownEvent`
 belong to this package under `Diana\Events`. Optional framework modules may use
 these events; the SDK contains the shared contracts.
 
+## File cache paths
+
+`FileCache`, `JsonFileCache` and `PhpFileCache` use hashed filenames in a namespace
+derived from the driver class and its data/metadata extensions. Drivers and the
+IDE alias cache therefore do not share entries or expiration metadata. Changing
+an extension selects a different namespace. Extensions must be distinct,
+dot-separated alphanumeric suffixes such as `.cache.php` and `.meta.txt`.
+
+Keys must be non-empty strings without control characters or `{ } ( ) / \\ @ :`.
+Invalid keys throw `Diana\Cache\Exceptions\InvalidCacheKeyException`, which
+implements the PSR Simple Cache invalid-argument interface. Bulk operations
+validate the entire iterable before accessing entries. `setMultiple()` also
+accepts integer map keys as their string equivalents because PHP converts
+numeric string array keys to integers. Keys in `getMultiple()` and
+`deleteMultiple()` must be strings.
+
+`clear()` removes only regular files matching the current namespace and its
+exact data/metadata filename patterns. It preserves other files, directories,
+symlinks and other driver namespaces. Entry paths pointing to symlinks or
+directories are rejected with a `RuntimeException` during normal operations.
+
+Existing caches using raw keys as filenames are ignored and preserved, so entries
+are rebuilt on demand. Remove obsolete files separately after deployment. IDE
+alias files still contain raw PHP source and retain the `.cache.php` suffix,
+but now have hashed names too.
+
+The configured cache directories must be controlled by the application and must
+not be writable by untrusted users. The link checks do not protect against
+concurrent filesystem manipulation by another process with write access. PHP
+cache files execute code, and all three drivers can deserialize PHP objects;
+cache storage is a trusted boundary. Atomic persistence and concurrent writers
+are separate concerns.
+
 ## Errors and Bugs
 
 If you find any bugs or errors, please report them on the official forums that will be available at a future time.
